@@ -70,18 +70,19 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlKey = params.get("k")?.trim() ?? "";
+    const providedKey = urlKey || employeeKey || "";
     const storedKey = window.localStorage.getItem(EMPLOYEE_KEY_STORAGE_KEY)?.trim() ?? "";
-    const nextKey = urlKey || employeeKey || storedKey;
+    const nextKey = providedKey || storedKey;
 
-    if (urlKey) {
-      window.localStorage.setItem(EMPLOYEE_KEY_STORAGE_KEY, urlKey);
+    if (providedKey) {
+      window.localStorage.setItem(EMPLOYEE_KEY_STORAGE_KEY, providedKey);
     }
 
     if (!nextKey) {
       setEffectiveEmployeeKey(null);
       setData(null);
       setMessage(
-        "社員キーが指定されていません。Safariで社員キー付きURL（例: ?k=yamauchi）を開いてから、ホーム画面に追加してください。",
+        "Safariで社員専用URLを開いてからホーム画面に追加してください。",
       );
       setEmployeeKeyChecked(true);
       return;
@@ -174,7 +175,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
         <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h1 className="text-xl font-bold text-slate-900">社員キーが必要です</h1>
           <p className="mt-3 text-sm text-slate-600">
-            Safariで社員キー付きURL（例: ?k=yamauchi）を開いてから、ホーム画面に追加してください。
+            Safariで社員専用URLを開いてからホーム画面に追加してください。
           </p>
           {message && (
             <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">

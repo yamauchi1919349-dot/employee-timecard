@@ -3,7 +3,6 @@
   "short_name": "タイムカード",
   "description": "社員勤怠管理タイムカード",
   "lang": "ja",
-  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
