@@ -16,7 +16,10 @@ type Props = {
   initialMessage?: string;
 };
 
+const EMPLOYEE_KEY_STORAGE_KEY = "employee-timecard.employeeKey";
+
 export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: Props) {
+  const [effectiveEmployeeKey, setEffectiveEmployeeKey] = useState(employeeKey);
   const [data, setData] = useState<TimecardPayload | null>(initialData);
   const [workType, setWorkType] = useState<WorkType>(
     initialData?.todayLog?.work_type ?? "normal",
@@ -29,6 +32,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(initialMessage);
   const [showModal, setShowModal] = useState(false);
+  const [employeeKeyChecked, setEmployeeKeyChecked] = useState(Boolean(employeeKey));
 
   const canClockIn = data?.status === "not_clocked_in";
   const canClockOut = data?.status === "working";
@@ -46,14 +50,12 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     };
   }, []);
 
-  const loadData = useCallback(async () => {
-    if (!employeeKey) return;
-
+  const fetchTimecardData = useCallback(async (key: string) => {
     setLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch(`/api/timecard?k=${encodeURIComponent(employeeKey)}`);
+      const response = await fetch(`/api/timecard?k=${encodeURIComponent(key)}`);
       const payload = await response.json();
 
       if (!response.ok) throw new Error(payload.message);
@@ -63,7 +65,40 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     } finally {
       setLoading(false);
     }
-  }, [employeeKey]);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlKey = params.get("k")?.trim() ?? "";
+    const storedKey = window.localStorage.getItem(EMPLOYEE_KEY_STORAGE_KEY)?.trim() ?? "";
+    const nextKey = urlKey || employeeKey || storedKey;
+
+    if (urlKey) {
+      window.localStorage.setItem(EMPLOYEE_KEY_STORAGE_KEY, urlKey);
+    }
+
+    if (!nextKey) {
+      setEffectiveEmployeeKey(null);
+      setData(null);
+      setMessage(
+        "社員キーが指定されていません。Safariで社員キー付きURL（例: ?k=yamauchi）を開いてから、ホーム画面に追加してください。",
+      );
+      setEmployeeKeyChecked(true);
+      return;
+    }
+
+    setEffectiveEmployeeKey(nextKey);
+    setEmployeeKeyChecked(true);
+
+    if (!initialData || nextKey !== employeeKey) {
+      void fetchTimecardData(nextKey);
+    }
+  }, [employeeKey, fetchTimecardData, initialData]);
+
+  const loadData = useCallback(async () => {
+    if (!effectiveEmployeeKey) return;
+    await fetchTimecardData(effectiveEmployeeKey);
+  }, [effectiveEmployeeKey, fetchTimecardData]);
 
   function applyPayload(payload: TimecardPayload) {
     setData(payload);
@@ -73,7 +108,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   async function handleClockIn() {
     await postAction("/api/clock-in", {
-      key: employeeKey,
+      key: effectiveEmployeeKey,
       workType,
       breakFlag,
     });
@@ -91,7 +126,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   async function handleClockOut(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await postAction("/api/clock-out", {
-      key: employeeKey,
+      key: effectiveEmployeeKey,
       clockIn: clockInEdit,
       clockOut: clockOutEdit,
     });
@@ -120,14 +155,32 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     }
   }
 
-  if (!employeeKey) {
+  if (!employeeKeyChecked) {
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-xl items-center px-5">
         <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <h1 className="text-xl font-bold text-slate-900">社員勤怠管理タイムカード</h1>
           <p className="mt-3 text-sm text-slate-600">
-            URLに従業員キーを指定してください。例: /?k=demo-taro
+            社員キーを確認しています。
           </p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!effectiveEmployeeKey) {
+    return (
+      <main className="mx-auto flex min-h-screen w-full max-w-xl items-center px-5">
+        <section className="w-full rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <h1 className="text-xl font-bold text-slate-900">社員キーが必要です</h1>
+          <p className="mt-3 text-sm text-slate-600">
+            Safariで社員キー付きURL（例: ?k=yamauchi）を開いてから、ホーム画面に追加してください。
+          </p>
+          {message && (
+            <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+              {message}
+            </p>
+          )}
         </section>
       </main>
     );
