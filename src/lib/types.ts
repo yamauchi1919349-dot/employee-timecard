@@ -21,6 +21,8 @@ export type AttendanceLog = {
   company_id: string;
   member_id: string;
   date: string;
+  staff_id: string | null;
+  staff_name: string | null;
   work_type: WorkType;
   break_flag: boolean;
   clock_in: string | null;
@@ -33,6 +35,17 @@ export type AttendanceLog = {
   members?: Pick<Member, "name" | "key"> | null;
 };
 
+export type GroupStaffConfig = {
+  id: string;
+  name: string;
+};
+
+export type GroupStaffStatus = GroupStaffConfig & {
+  status: AttendanceStatus;
+  clockIn: string | null;
+  clockOut: string | null;
+};
+
 export type TimecardPayload = {
   member: Member;
   businessDate: string;
@@ -41,5 +54,8 @@ export type TimecardPayload = {
   recentLogs: AttendanceLog[];
   availableMonths: string[];
   now: string;
+  groupStaff: GroupStaffConfig[] | null;
+  staffStatuses: GroupStaffStatus[];
+  selectedStaff: GroupStaffConfig | null;
 };
 

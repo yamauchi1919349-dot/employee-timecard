@@ -10,7 +10,13 @@ import {
   getWorkTypeLabel,
   toDatetimeLocalValue,
 } from "@/lib/attendance";
-import { AttendanceStatus, TimecardPayload, WorkType } from "@/lib/types";
+import {
+  AttendanceStatus,
+  GroupStaffConfig,
+  GroupStaffStatus,
+  TimecardPayload,
+  WorkType,
+} from "@/lib/types";
 
 type Props = {
   employeeKey: string | null;
@@ -27,10 +33,14 @@ type MonthlySummary = {
 };
 
 const EMPLOYEE_KEY_STORAGE_KEY = "employee-timecard.employeeKey";
+const STAFF_STORAGE_PREFIX = "employee-timecard.selectedStaff.";
 
 export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: Props) {
   const [effectiveEmployeeKey, setEffectiveEmployeeKey] = useState(employeeKey);
   const [data, setData] = useState<TimecardPayload | null>(initialData);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(
+    initialData?.selectedStaff?.id ?? null,
+  );
   const [workType, setWorkType] = useState<WorkType>(
     initialData?.todayLog?.work_type ?? "normal",
   );
@@ -49,16 +59,26 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   const [showModal, setShowModal] = useState(false);
   const [employeeKeyChecked, setEmployeeKeyChecked] = useState(Boolean(employeeKey));
 
-  const canClockIn = data?.status === "not_clocked_in";
-  const canClockOut = data?.status === "working";
-  const todayLog = data?.todayLog ?? null;
+  const groupStaff = data?.groupStaff ?? null;
+  const isGroupMode = Boolean(groupStaff?.length);
+  const selectedStaff = useMemo(
+    () => groupStaff?.find((staff) => staff.id === selectedStaffId) ?? data?.selectedStaff ?? null,
+    [data?.selectedStaff, groupStaff, selectedStaffId],
+  );
+  const staffReady = !isGroupMode || Boolean(selectedStaff);
+  const canClockIn = staffReady && data?.status === "not_clocked_in";
+  const canClockOut = staffReady && data?.status === "working";
+  const todayLog = staffReady ? data?.todayLog ?? null : null;
   const displayNow = mounted && now ? now : null;
   const currentMonth = data?.businessDate.slice(0, 7) ?? selectedMonth;
+  const displayName = isGroupMode
+    ? selectedStaff?.name ?? "スタッフを選択"
+    : data?.member.name ?? "読み込み中";
 
-  const statusView = getStatusView(data?.status ?? "not_clocked_in");
+  const statusView = getStatusView(staffReady ? data?.status ?? "not_clocked_in" : "not_clocked_in");
   const todayWorkMinutes = useMemo(
-    () => getTodayWorkMinutes(todayLog, data?.status, displayNow),
-    [todayLog, data?.status, displayNow],
+    () => getTodayWorkMinutes(todayLog, staffReady ? data?.status : undefined, displayNow),
+    [todayLog, staffReady, data?.status, displayNow],
   );
   const todayBreakMinutes = todayLog?.break_flag ?? breakFlag ? BREAK_MINUTES : 0;
   const remainingMinutes = Math.max(0, BASIC_WORK_MINUTES - todayWorkMinutes);
@@ -88,12 +108,14 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     };
   }, []);
 
-  const fetchTimecardData = useCallback(async (key: string) => {
+  const fetchTimecardData = useCallback(async (key: string, staffId?: string | null) => {
     setLoading(true);
     setMessage("");
 
     try {
-      const response = await fetch(`/api/timecard?k=${encodeURIComponent(key)}`);
+      const params = new URLSearchParams({ k: key });
+      if (staffId) params.set("staffId", staffId);
+      const response = await fetch(`/api/timecard?${params.toString()}`);
       const payload = await response.json();
 
       if (!response.ok) throw new Error(payload.message);
@@ -133,14 +155,36 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   }, [employeeKey, fetchTimecardData, initialData]);
 
   useEffect(() => {
-    if (!effectiveEmployeeKey || !selectedMonth) return;
+    if (!effectiveEmployeeKey || !data?.groupStaff?.length) return;
+    if (selectedStaffId) return;
+
+    const storedStaffId = window.localStorage.getItem(
+      `${STAFF_STORAGE_PREFIX}${effectiveEmployeeKey}`,
+    );
+    const staffExists = data.groupStaff.some((staff) => staff.id === storedStaffId);
+
+    if (storedStaffId && staffExists) {
+      setSelectedStaffId(storedStaffId);
+      void fetchTimecardData(effectiveEmployeeKey, storedStaffId);
+    }
+  }, [data?.groupStaff, effectiveEmployeeKey, fetchTimecardData, selectedStaffId]);
+
+  useEffect(() => {
+    if (!effectiveEmployeeKey || !selectedMonth || !staffReady) {
+      setMonthlySummary(null);
+      return;
+    }
 
     let ignore = false;
     setSummaryLoading(true);
 
-    fetch(
-      `/api/monthly-summary?k=${encodeURIComponent(effectiveEmployeeKey)}&month=${selectedMonth}`,
-    )
+    const params = new URLSearchParams({
+      k: effectiveEmployeeKey,
+      month: selectedMonth,
+    });
+    if (isGroupMode && selectedStaff?.id) params.set("staffId", selectedStaff.id);
+
+    fetch(`/api/monthly-summary?${params.toString()}`)
       .then(async (response) => {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.message);
@@ -159,30 +203,41 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     return () => {
       ignore = true;
     };
-  }, [effectiveEmployeeKey, selectedMonth]);
+  }, [effectiveEmployeeKey, isGroupMode, selectedMonth, selectedStaff?.id, staffReady]);
 
   const loadData = useCallback(async () => {
     if (!effectiveEmployeeKey) return;
-    await fetchTimecardData(effectiveEmployeeKey);
-  }, [effectiveEmployeeKey, fetchTimecardData]);
+    await fetchTimecardData(effectiveEmployeeKey, isGroupMode ? selectedStaff?.id : null);
+  }, [effectiveEmployeeKey, fetchTimecardData, isGroupMode, selectedStaff?.id]);
 
   function applyPayload(payload: TimecardPayload) {
     setData(payload);
     setWorkType(payload.todayLog?.work_type ?? "normal");
     setBreakFlag(payload.todayLog?.break_flag ?? true);
     setSelectedMonth((current) => current || payload.businessDate.slice(0, 7));
+    setSelectedStaffId(payload.selectedStaff?.id ?? null);
+  }
+
+  async function selectStaff(staff: GroupStaffConfig) {
+    if (!effectiveEmployeeKey) return;
+    window.localStorage.setItem(`${STAFF_STORAGE_PREFIX}${effectiveEmployeeKey}`, staff.id);
+    setSelectedStaffId(staff.id);
+    await fetchTimecardData(effectiveEmployeeKey, staff.id);
   }
 
   async function handleClockIn() {
+    if (!staffReady) return;
     await postAction("/api/clock-in", {
       key: effectiveEmployeeKey,
       workType,
       breakFlag,
+      staffId: isGroupMode ? selectedStaff?.id : undefined,
+      staffName: isGroupMode ? selectedStaff?.name : undefined,
     });
   }
 
   function openClockOutModal() {
-    if (!data?.todayLog) return;
+    if (!data?.todayLog || !staffReady) return;
 
     const currentOut = new Date().toISOString();
     setClockInEdit(toDatetimeLocalValue(data.todayLog.clock_in));
@@ -194,6 +249,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     event.preventDefault();
     await postAction("/api/clock-out", {
       key: effectiveEmployeeKey,
+      staffId: isGroupMode ? selectedStaff?.id : undefined,
       clockIn: clockInEdit,
       clockOut: clockOutEdit,
     });
@@ -259,7 +315,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
         <header className="animate-fade-in px-1 pt-2">
           <p className="text-lg font-bold text-slate-950">おはようございます ☀️</p>
           <h1 className="mt-1 text-3xl font-black tracking-normal">
-            {data?.member.name ?? "読み込み中"}さん
+            {isGroupMode && !selectedStaff ? displayName : `${displayName}さん`}
           </h1>
           <p className="mt-4 text-sm font-bold text-slate-500">本日の勤務状況</p>
           <div className="mt-2 flex items-end justify-between gap-4">
@@ -279,7 +335,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
             <button
               type="button"
               onClick={loadData}
-              disabled={loading}
+              disabled={loading || (isGroupMode && !selectedStaff)}
               className="h-12 w-12 shrink-0 rounded-full bg-white text-lg font-black text-slate-700 shadow-sm transition active:scale-95 disabled:opacity-50"
               aria-label="更新"
             >
@@ -288,10 +344,38 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
           </div>
         </header>
 
+        {isGroupMode && groupStaff && (
+          <section className="app-card animate-fade-in p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-black">スタッフ選択</h2>
+              <span className="text-xs font-bold text-slate-400">pato</span>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {groupStaff.map((staff) => {
+                const status =
+                  data?.staffStatuses.find((item) => item.id === staff.id) ?? {
+                    ...staff,
+                    status: "not_clocked_in" as AttendanceStatus,
+                    clockIn: null,
+                    clockOut: null,
+                  };
+                return (
+                  <StaffCard
+                    key={staff.id}
+                    staff={status}
+                    selected={selectedStaff?.id === staff.id}
+                    onSelect={() => void selectStaff(staff)}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         <section className={`app-card animate-fade-in p-6 ${statusView.ring}`}>
           <div className="flex items-center justify-between gap-3">
             <span className={`rounded-full px-4 py-2 text-sm font-black ${statusView.badge}`}>
-              {statusView.label}
+              {staffReady ? statusView.label : "スタッフ未選択"}
             </span>
             {targetReached && (
               <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
@@ -310,7 +394,9 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
           <div className={`mt-5 rounded-3xl px-5 py-4 ${statusView.panel}`}>
             <p className="text-sm font-bold opacity-80">現在の状態</p>
-            <p className="mt-1 text-3xl font-black tracking-normal">{statusView.label}</p>
+            <p className="mt-1 text-3xl font-black tracking-normal">
+              {staffReady ? statusView.label : "スタッフを選択"}
+            </p>
           </div>
         </section>
 
@@ -345,11 +431,21 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
           <button
             type="button"
-            disabled={loading || (!canClockIn && !canClockOut)}
+            disabled={loading || !staffReady || (!canClockIn && !canClockOut)}
             onClick={canClockIn ? handleClockIn : openClockOutModal}
             className={`mt-5 flex h-[68px] w-full items-center justify-center rounded-full text-xl font-black text-white shadow-lg transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none ${statusView.action}`}
           >
-            {loading ? <Spinner light /> : canClockIn ? "▶ 出勤" : canClockOut ? "■ 退勤" : "✓ 本日は完了"}
+            {loading ? (
+              <Spinner light />
+            ) : !staffReady ? (
+              "スタッフを選択"
+            ) : canClockIn ? (
+              "▶ 出勤"
+            ) : canClockOut ? (
+              "■ 退勤"
+            ) : (
+              "✓ 本日は完了"
+            )}
           </button>
 
           {message && (
@@ -362,17 +458,21 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
         <section className="app-card animate-fade-in p-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-black">本日の実績</h2>
-            {data?.status === "clocked_out" && (
+            {staffReady && data?.status === "clocked_out" && (
               <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-600">
                 本日もお疲れ様でした 🎉
               </span>
             )}
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <StatCard label="勤務時間" value={formatMinutes(todayWorkMinutes)} />
-            <StatCard label="休憩" value={formatMinutes(todayBreakMinutes)} />
-            <StatCard label="残り" value={formatMinutes(remainingMinutes)} />
-          </div>
+          {staffReady ? (
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <StatCard label="勤務時間" value={formatMinutes(todayWorkMinutes)} />
+              <StatCard label="休憩" value={formatMinutes(todayBreakMinutes)} />
+              <StatCard label="残り" value={formatMinutes(remainingMinutes)} />
+            </div>
+          ) : (
+            <EmptyStaffNotice />
+          )}
         </section>
 
         <section className="app-card animate-fade-in p-5">
@@ -385,8 +485,9 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
             </div>
             <select
               value={selectedMonth}
+              disabled={!staffReady}
               onChange={(event) => setSelectedMonth(event.target.value)}
-              className="h-10 rounded-full border border-slate-200 bg-slate-50 px-3 text-sm font-black outline-none"
+              className="h-10 rounded-full border border-slate-200 bg-slate-50 px-3 text-sm font-black outline-none disabled:text-slate-400"
             >
               {monthOptions.map((month) => (
                 <option key={month} value={month}>
@@ -395,23 +496,33 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
               ))}
             </select>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            <StatCard
-              label="勤務日数"
-              value={summaryLoading ? "..." : `${monthlySummary?.workedDays ?? 0}日`}
-              accent="blue"
-            />
-            <StatCard
-              label="総勤務時間"
-              value={summaryLoading ? "..." : formatHourLabel(monthlySummary?.totalWorkMinutes ?? 0)}
-              accent="slate"
-            />
-            <StatCard
-              label="残業"
-              value={summaryLoading ? "..." : formatHourLabel(monthlySummary?.overtimeMinutes ?? 0)}
-              accent="rose"
-            />
-          </div>
+          {staffReady ? (
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <StatCard
+                label="勤務日数"
+                value={summaryLoading ? "..." : `${monthlySummary?.workedDays ?? 0}日`}
+                accent="blue"
+              />
+              <StatCard
+                label="総勤務時間"
+                value={
+                  summaryLoading
+                    ? "..."
+                    : formatHourLabel(monthlySummary?.totalWorkMinutes ?? 0)
+                }
+                accent="slate"
+              />
+              <StatCard
+                label="残業"
+                value={
+                  summaryLoading ? "..." : formatHourLabel(monthlySummary?.overtimeMinutes ?? 0)
+                }
+                accent="rose"
+              />
+            </div>
+          ) : (
+            <EmptyStaffNotice />
+          )}
         </section>
 
         <section className="app-card animate-fade-in p-5">
@@ -419,31 +530,36 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
             <h2 className="text-lg font-black">最近の記録</h2>
             <span className="text-xs font-bold text-slate-400">直近3日</span>
           </div>
-          <div className="mt-4 flex flex-col gap-3">
-            {data?.recentLogs.length ? (
-              data.recentLogs.map((log) => (
-                <article key={log.id} className="rounded-3xl bg-slate-50 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-black">{log.date}</p>
-                    <p className="text-xs font-bold text-slate-500">
-                      {getWorkTypeLabel(log.work_type)} / {log.break_flag ? "休憩あり" : "休憩なし"}
-                    </p>
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-600">
-                    <p>出勤 {formatLocalDateTime(log.clock_in)}</p>
-                    <p>退勤 {formatLocalDateTime(log.clock_out)}</p>
-                    <p>勤務 {formatMinutes(log.work_minutes)}</p>
-                    <p>残業 {formatMinutes(log.overtime_minutes)}</p>
-                  </div>
-                  {log.note && <p className="mt-3 text-sm text-slate-500">{log.note}</p>}
-                </article>
-              ))
-            ) : (
-              <p className="rounded-3xl bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                表示できる打刻記録はまだありません。
-              </p>
-            )}
-          </div>
+          {!staffReady ? (
+            <EmptyStaffNotice />
+          ) : (
+            <div className="mt-4 flex flex-col gap-3">
+              {data?.recentLogs.length ? (
+                data.recentLogs.map((log) => (
+                  <article key={log.id} className="rounded-3xl bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-black">{log.date}</p>
+                      <p className="text-xs font-bold text-slate-500">
+                        {getWorkTypeLabel(log.work_type)} /{" "}
+                        {log.break_flag ? "休憩あり" : "休憩なし"}
+                      </p>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-600">
+                      <p>出勤 {formatLocalDateTime(log.clock_in)}</p>
+                      <p>退勤 {formatLocalDateTime(log.clock_out)}</p>
+                      <p>勤務 {formatMinutes(log.work_minutes)}</p>
+                      <p>残業 {formatMinutes(log.overtime_minutes)}</p>
+                    </div>
+                    {log.note && <p className="mt-3 text-sm text-slate-500">{log.note}</p>}
+                  </article>
+                ))
+              ) : (
+                <p className="rounded-3xl bg-slate-50 p-4 text-sm font-bold text-slate-500">
+                  表示できる打刻記録はまだありません。
+                </p>
+              )}
+            </div>
+          )}
         </section>
       </div>
 
@@ -502,6 +618,52 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   );
 }
 
+function StaffCard({
+  staff,
+  selected,
+  onSelect,
+}: {
+  staff: GroupStaffStatus;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const view = getStatusView(staff.status);
+  const time =
+    staff.status === "working"
+      ? formatTime(staff.clockIn)
+      : staff.status === "clocked_out"
+        ? formatTime(staff.clockOut)
+        : "未出勤";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex w-full items-center justify-between rounded-3xl border p-4 text-left transition active:scale-[0.98] ${
+        selected
+          ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-100"
+          : "border-transparent bg-slate-50"
+      }`}
+    >
+      <div>
+        <p className="text-lg font-black text-slate-950">{staff.name}</p>
+        <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${view.badge}`}>
+          {view.label}
+        </p>
+      </div>
+      <p className="text-xl font-black tracking-normal text-slate-950 tabular-nums">{time}</p>
+    </button>
+  );
+}
+
+function EmptyStaffNotice() {
+  return (
+    <p className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm font-bold text-slate-500">
+      スタッフを選択すると表示されます。
+    </p>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-3xl bg-slate-50 p-4">
@@ -550,14 +712,14 @@ function Spinner({ light = false, compact = false }: { light?: boolean; compact?
 function getStatusView(status: AttendanceStatus) {
   const views = {
     not_clocked_in: {
-      label: "出勤前",
+      label: "未出勤",
       badge: "bg-slate-100 text-slate-600",
       panel: "bg-slate-100 text-slate-700",
       ring: "ring-1 ring-slate-100",
       action: "bg-blue-600 shadow-blue-200",
     },
     working: {
-      label: "勤務中",
+      label: "出勤中",
       badge: "bg-blue-100 text-blue-700",
       panel: "bg-blue-600 text-white",
       ring: "ring-2 ring-blue-100",

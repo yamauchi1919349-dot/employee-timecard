@@ -9,7 +9,8 @@ import {
   getStatus,
   parseJapaneseDatetimeLocal,
 } from "./attendance";
-import { AttendanceLog, Member, WorkType } from "./types";
+import { getGroupStaffConfig, getGroupStaffConfigs } from "./group-staff";
+import { AttendanceLog, GroupStaffConfig, Member, WorkType } from "./types";
 
 type Supabase = ReturnType<typeof createSupabaseAdmin>;
 
@@ -56,14 +57,17 @@ export async function getTodayLog(
   supabase: Supabase,
   memberId: string,
   businessDate = getBusinessDate(),
+  staffId?: string | null,
 ) {
-  const { data, error } = await supabase
+  let query = supabase
     .from("attendance_logs")
     .select("*")
     .eq("member_id", memberId)
     .eq("date", businessDate)
-    .limit(1)
-    .maybeSingle<AttendanceLog>();
+    .limit(1);
+
+  query = applyStaffFilter(query, staffId);
+  const { data, error } = await query.maybeSingle<AttendanceLog>();
 
   if (error) {
     if (isMissingAttendanceLogsTable(error)) return null;
@@ -76,14 +80,18 @@ export async function getRecentLogs(
   supabase: Supabase,
   memberId: string,
   businessDate = getBusinessDate(),
+  staffId?: string | null,
 ) {
   const dates = getPastBusinessDateKeys(businessDate, 3);
-  const { data, error } = await supabase
+  let query = supabase
     .from("attendance_logs")
     .select("*")
     .eq("member_id", memberId)
     .in("date", dates)
     .order("date", { ascending: false });
+
+  query = applyStaffFilter(query, staffId);
+  const { data, error } = await query;
 
   if (error) {
     if (isMissingAttendanceLogsTable(error)) return [];
@@ -92,12 +100,19 @@ export async function getRecentLogs(
   return (data ?? []) as AttendanceLog[];
 }
 
-export async function getAvailableMonths(supabase: Supabase, memberId: string) {
-  const { data, error } = await supabase
+export async function getAvailableMonths(
+  supabase: Supabase,
+  memberId: string,
+  staffId?: string | null,
+) {
+  let query = supabase
     .from("attendance_logs")
     .select("date")
     .eq("member_id", memberId)
     .order("date", { ascending: false });
+
+  query = applyStaffFilter(query, staffId);
+  const { data, error } = await query;
 
   if (error) {
     if (isMissingAttendanceLogsTable(error)) return [];
@@ -109,7 +124,10 @@ export async function getAvailableMonths(supabase: Supabase, memberId: string) {
   );
 }
 
-export async function getTimecardData(key: string) {
+export async function getTimecardData(
+  key: string,
+  options: { staffId?: string | null } = {},
+) {
   const supabase = createSupabaseAdmin();
   const member = await getMemberByKey(supabase, key);
 
@@ -118,10 +136,16 @@ export async function getTimecardData(key: string) {
   }
 
   const businessDate = getBusinessDate();
-  const [todayLog, recentLogs, availableMonths] = await Promise.all([
-    getTodayLog(supabase, member.id, businessDate),
-    getRecentLogs(supabase, member.id, businessDate),
-    getAvailableMonths(supabase, member.id),
+  const groupStaff = getGroupStaffConfigs(key);
+  const selectedStaff = groupStaff
+    ? getGroupStaffConfig(key, options.staffId)
+    : null;
+  const staffId = groupStaff ? selectedStaff?.id ?? null : null;
+  const [todayLog, recentLogs, availableMonths, staffStatuses] = await Promise.all([
+    getTodayLog(supabase, member.id, businessDate, staffId),
+    getRecentLogs(supabase, member.id, businessDate, staffId),
+    getAvailableMonths(supabase, member.id, staffId),
+    groupStaff ? getStaffStatuses(supabase, member.id, businessDate, groupStaff) : [],
   ]);
 
   return {
@@ -132,6 +156,9 @@ export async function getTimecardData(key: string) {
     recentLogs,
     availableMonths,
     now: new Date().toISOString(),
+    groupStaff,
+    staffStatuses,
+    selectedStaff,
   };
 }
 
@@ -139,6 +166,8 @@ export async function clockIn(params: {
   key: string;
   workType: WorkType;
   breakFlag: boolean;
+  staffId?: string | null;
+  staffName?: string | null;
 }) {
   const supabase = createSupabaseAdmin();
   const member = await getMemberByKey(supabase, params.key);
@@ -146,7 +175,8 @@ export async function clockIn(params: {
   if (!member) throw new Error("従業員が見つかりません。");
 
   const businessDate = getBusinessDate();
-  const existing = await getTodayLog(supabase, member.id, businessDate);
+  const staff = resolveStaff(params.key, params.staffId, params.staffName);
+  const existing = await getTodayLog(supabase, member.id, businessDate, staff?.id ?? null);
 
   if (existing?.clock_in) {
     throw new Error("本日はすでに出勤済みです。");
@@ -157,6 +187,8 @@ export async function clockIn(params: {
     company_id: member.company_id,
     member_id: member.id,
     date: businessDate,
+    staff_id: staff?.id ?? null,
+    staff_name: staff?.name ?? null,
     work_type: params.workType,
     break_flag: params.breakFlag,
     clock_in: now,
@@ -180,6 +212,7 @@ export async function clockOut(params: {
   key: string;
   clockIn?: string;
   clockOut?: string;
+  staffId?: string | null;
 }) {
   const supabase = createSupabaseAdmin();
   const member = await getMemberByKey(supabase, params.key);
@@ -187,7 +220,8 @@ export async function clockOut(params: {
   if (!member) throw new Error("従業員が見つかりません。");
 
   const businessDate = getBusinessDate();
-  const existing = await getTodayLog(supabase, member.id, businessDate);
+  const staff = resolveStaff(params.key, params.staffId);
+  const existing = await getTodayLog(supabase, member.id, businessDate, staff?.id ?? null);
 
   if (!existing?.clock_in) {
     throw new Error("出勤前に退勤はできません。");
@@ -233,7 +267,11 @@ export async function clockOut(params: {
   return data;
 }
 
-export async function getMonthlyLogs(params: { key: string; month: string }) {
+export async function getMonthlyLogs(params: {
+  key: string;
+  month: string;
+  staffId?: string | null;
+}) {
   const supabase = createSupabaseAdmin();
   const member = await getMemberByKey(supabase, params.key);
 
@@ -242,7 +280,8 @@ export async function getMonthlyLogs(params: { key: string; month: string }) {
   const start = `${params.month}-01`;
   const [year, month] = params.month.split("-").map(Number);
   const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
-  const { data, error } = await supabase
+  const staff = resolveStaff(params.key, params.staffId);
+  let query = supabase
     .from("attendance_logs")
     .select("*")
     .eq("member_id", member.id)
@@ -250,9 +289,78 @@ export async function getMonthlyLogs(params: { key: string; month: string }) {
     .lte("date", end)
     .order("date", { ascending: true });
 
+  query = applyStaffFilter(query, staff?.id ?? null);
+  const { data, error } = await query;
+
   if (error) {
     if (isMissingAttendanceLogsTable(error)) return { member, logs: [] };
     throwWithContext(error, "attendance_logs monthly lookup failed");
   }
   return { member, logs: (data ?? []) as AttendanceLog[] };
+}
+
+async function getStaffStatuses(
+  supabase: Supabase,
+  memberId: string,
+  businessDate: string,
+  staffConfigs: GroupStaffConfig[],
+) {
+  const { data, error } = await supabase
+    .from("attendance_logs")
+    .select("*")
+    .eq("member_id", memberId)
+    .eq("date", businessDate)
+    .in(
+      "staff_id",
+      staffConfigs.map((staff) => staff.id),
+    );
+
+  if (error) {
+    if (isMissingAttendanceLogsTable(error)) return [];
+    throwWithContext(error, "attendance_logs staff status lookup failed");
+  }
+
+  const logs = ((data ?? []) as AttendanceLog[]).reduce<Record<string, AttendanceLog>>(
+    (index, log) => {
+      if (log.staff_id) index[log.staff_id] = log;
+      return index;
+    },
+    {},
+  );
+
+  return staffConfigs.map((staff) => {
+    const log = logs[staff.id] ?? null;
+    return {
+      ...staff,
+      status: getStatus(log),
+      clockIn: log?.clock_in ?? null,
+      clockOut: log?.clock_out ?? null,
+    };
+  });
+}
+
+function resolveStaff(
+  key: string,
+  staffId?: string | null,
+  staffName?: string | null,
+) {
+  const groupStaff = getGroupStaffConfigs(key);
+  if (!groupStaff) return null;
+
+  const staff = getGroupStaffConfig(key, staffId);
+  if (!staff) {
+    throw new Error("スタッフを選択してください。");
+  }
+
+  return {
+    id: staff.id,
+    name: staffName || staff.name,
+  };
+}
+
+function applyStaffFilter<T extends { is: Function; eq: Function }>(
+  query: T,
+  staffId?: string | null,
+) {
+  return staffId ? query.eq("staff_id", staffId) : query.is("staff_id", null);
 }

@@ -7,7 +7,9 @@ import { getBusinessDate } from "@/lib/attendance";
 import { createSupabaseAdmin } from "@/lib/supabase";
 
 export async function GET(request: Request) {
-  const key = new URL(request.url).searchParams.get("k");
+  const searchParams = new URL(request.url).searchParams;
+  const key = searchParams.get("k");
+  const staffId = searchParams.get("staffId");
 
   if (!key) {
     return NextResponse.json({ message: "k が必要です。" }, { status: 400 });
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const logs = await getRecentLogs(supabase, member.id, getBusinessDate());
+    const logs = await getRecentLogs(supabase, member.id, getBusinessDate(), staffId);
     return NextResponse.json({ logs });
   } catch (error) {
     return NextResponse.json(

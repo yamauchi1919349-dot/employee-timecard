@@ -6,13 +6,14 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const key = searchParams.get("k");
   const month = searchParams.get("month");
+  const staffId = searchParams.get("staffId");
 
   if (!key || !month) {
     return NextResponse.json({ message: "k と month が必要です。" }, { status: 400 });
   }
 
   try {
-    const { logs } = await getMonthlyLogs({ key, month });
+    const { logs } = await getMonthlyLogs({ key, month, staffId });
     const summary = summarizeMonthlyLogs(logs);
     const overtimeMinutes =
       summary.normalOvertimeMinutes + summary.kitchenCarOvertimeMinutes;

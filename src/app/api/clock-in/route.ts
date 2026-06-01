@@ -8,6 +8,8 @@ export async function POST(request: Request) {
       key?: string;
       workType?: WorkType;
       breakFlag?: boolean;
+      staffId?: string;
+      staffName?: string;
     };
 
     if (!body.key) {
@@ -18,9 +20,11 @@ export async function POST(request: Request) {
       key: body.key,
       workType: body.workType ?? "normal",
       breakFlag: Boolean(body.breakFlag),
+      staffId: body.staffId,
+      staffName: body.staffName,
     });
 
-    return NextResponse.json(await getTimecardData(body.key));
+    return NextResponse.json(await getTimecardData(body.key, { staffId: body.staffId }));
   } catch (error) {
     return NextResponse.json(
       {

@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getTimecardData } from "@/lib/attendance-service";
 
 export async function GET(request: Request) {
-  const key = new URL(request.url).searchParams.get("k");
+  const searchParams = new URL(request.url).searchParams;
+  const key = searchParams.get("k");
+  const staffId = searchParams.get("staffId");
 
   if (!key) {
     return NextResponse.json(
@@ -12,7 +14,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const data = await getTimecardData(key);
+    const data = await getTimecardData(key, { staffId });
 
     if (!data) {
       return NextResponse.json(

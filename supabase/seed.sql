@@ -5,7 +5,8 @@ on conflict (id) do nothing;
 insert into public.members (company_id, key, name, active)
 values
   ('00000000-0000-0000-0000-000000000001', 'demo-taro', '山田 太郎', true),
-  ('00000000-0000-0000-0000-000000000001', 'demo-hana', '佐藤 花子', true)
+  ('00000000-0000-0000-0000-000000000001', 'demo-hana', '佐藤 花子', true),
+  ('00000000-0000-0000-0000-000000000001', 'pato', 'pato', true)
 on conflict (company_id, key) do update
 set name = excluded.name,
     active = excluded.active;
@@ -35,7 +36,7 @@ select
   'seed'
 from public.members m
 where m.key = 'demo-taro'
-on conflict (member_id, date) do nothing;
+on conflict do nothing;
 
 insert into public.attendance_logs (
   company_id,
@@ -62,5 +63,5 @@ select
   'seed'
 from public.members m
 where m.key = 'demo-taro'
-on conflict (member_id, date) do nothing;
+on conflict do nothing;
 

@@ -21,6 +21,8 @@ create table if not exists public.attendance_logs (
   company_id uuid not null references public.companies(id) on delete cascade,
   member_id uuid not null references public.members(id) on delete cascade,
   date date not null,
+  staff_id text,
+  staff_name text,
   work_type text not null check (work_type in ('normal', 'kitchen_car')),
   break_flag boolean not null default true,
   clock_in timestamptz,
@@ -30,14 +32,27 @@ create table if not exists public.attendance_logs (
   note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint attendance_logs_member_date_unique unique (member_id, date),
   constraint attendance_logs_work_minutes_non_negative check (work_minutes is null or work_minutes >= 0),
   constraint attendance_logs_overtime_minutes_non_negative check (overtime_minutes is null or overtime_minutes >= 0)
 );
 
+alter table public.attendance_logs
+  add column if not exists staff_id text,
+  add column if not exists staff_name text;
+
+alter table public.attendance_logs
+  drop constraint if exists attendance_logs_member_date_unique;
+
 create index if not exists members_key_active_idx on public.members(key, active);
 create index if not exists attendance_logs_company_date_idx on public.attendance_logs(company_id, date desc);
 create index if not exists attendance_logs_member_date_idx on public.attendance_logs(member_id, date desc);
+create index if not exists attendance_logs_member_staff_date_idx on public.attendance_logs(member_id, staff_id, date desc);
+create unique index if not exists attendance_logs_member_date_unique_null_staff
+  on public.attendance_logs(member_id, date)
+  where staff_id is null;
+create unique index if not exists attendance_logs_member_staff_date_unique
+  on public.attendance_logs(member_id, staff_id, date)
+  where staff_id is not null;
 
 create or replace function public.set_updated_at()
 returns trigger

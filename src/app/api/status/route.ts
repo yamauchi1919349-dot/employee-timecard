@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { getTimecardData } from "@/lib/attendance-service";
 
 export async function GET(request: Request) {
-  const key = new URL(request.url).searchParams.get("k");
+  const searchParams = new URL(request.url).searchParams;
+  const key = searchParams.get("k");
+  const staffId = searchParams.get("staffId");
 
   if (!key) {
     return NextResponse.json({ message: "k が必要です。" }, { status: 400 });
   }
 
   try {
-    const data = await getTimecardData(key);
+    const data = await getTimecardData(key, { staffId });
     return NextResponse.json(data);
   } catch (error) {
     return NextResponse.json(
