@@ -38,8 +38,8 @@ const STAFF_STORAGE_PREFIX = "employee-timecard.selectedStaff.";
 export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: Props) {
   const [effectiveEmployeeKey, setEffectiveEmployeeKey] = useState(employeeKey);
   const [data, setData] = useState<TimecardPayload | null>(initialData);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(
-    initialData?.selectedStaff?.id ?? null,
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(
+    initialData?.selectedStaff?.id ? [initialData.selectedStaff.id] : [],
   );
   const [workType, setWorkType] = useState<WorkType>(
     initialData?.todayLog?.work_type ?? "normal",
@@ -61,9 +61,10 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   const groupStaff = data?.groupStaff ?? null;
   const isGroupMode = Boolean(groupStaff?.length);
+  const primaryStaffId = selectedStaffIds[0] ?? null;
   const selectedStaff = useMemo(
-    () => groupStaff?.find((staff) => staff.id === selectedStaffId) ?? data?.selectedStaff ?? null,
-    [data?.selectedStaff, groupStaff, selectedStaffId],
+    () => groupStaff?.find((staff) => staff.id === primaryStaffId) ?? data?.selectedStaff ?? null,
+    [data?.selectedStaff, groupStaff, primaryStaffId],
   );
   const staffReady = !isGroupMode || Boolean(selectedStaff);
   const canClockIn = staffReady && data?.status === "not_clocked_in";
@@ -156,7 +157,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   useEffect(() => {
     if (!effectiveEmployeeKey || !data?.groupStaff?.length) return;
-    if (selectedStaffId) return;
+    if (selectedStaffIds.length) return;
 
     const storedStaffId = window.localStorage.getItem(
       `${STAFF_STORAGE_PREFIX}${effectiveEmployeeKey}`,
@@ -164,10 +165,10 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     const staffExists = data.groupStaff.some((staff) => staff.id === storedStaffId);
 
     if (storedStaffId && staffExists) {
-      setSelectedStaffId(storedStaffId);
+      setSelectedStaffIds([storedStaffId]);
       void fetchTimecardData(effectiveEmployeeKey, storedStaffId);
     }
-  }, [data?.groupStaff, effectiveEmployeeKey, fetchTimecardData, selectedStaffId]);
+  }, [data?.groupStaff, effectiveEmployeeKey, fetchTimecardData, selectedStaffIds.length]);
 
   useEffect(() => {
     if (!effectiveEmployeeKey || !selectedMonth || !staffReady) {
@@ -215,14 +216,55 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     setWorkType(payload.todayLog?.work_type ?? "normal");
     setBreakFlag(payload.todayLog?.break_flag ?? true);
     setSelectedMonth((current) => current || payload.businessDate.slice(0, 7));
-    setSelectedStaffId(payload.selectedStaff?.id ?? null);
+    if (payload.selectedStaff?.id) {
+      setSelectedStaffIds((current) =>
+        current.includes(payload.selectedStaff!.id)
+          ? current
+          : [payload.selectedStaff!.id, ...current],
+      );
+    }
   }
 
   async function selectStaff(staff: GroupStaffConfig) {
     if (!effectiveEmployeeKey) return;
-    window.localStorage.setItem(`${STAFF_STORAGE_PREFIX}${effectiveEmployeeKey}`, staff.id);
-    setSelectedStaffId(staff.id);
-    await fetchTimecardData(effectiveEmployeeKey, staff.id);
+    const nextIds = selectedStaffIds.includes(staff.id)
+      ? selectedStaffIds.filter((staffId) => staffId !== staff.id)
+      : [staff.id, ...selectedStaffIds];
+
+    setSelectedStaffIds(nextIds);
+
+    if (nextIds[0]) {
+      window.localStorage.setItem(`${STAFF_STORAGE_PREFIX}${effectiveEmployeeKey}`, nextIds[0]);
+      await fetchTimecardData(effectiveEmployeeKey, nextIds[0]);
+    }
+  }
+
+  async function handleBulkClockIn() {
+    if (!effectiveEmployeeKey || !selectedStaffIds.length) return;
+
+    await postAction("/api/clock-in", {
+      employeeKey: effectiveEmployeeKey,
+      workType,
+      breakFlag,
+      staffIds: selectedStaffIds,
+    });
+  }
+
+  async function handleBulkClockOut() {
+    if (!effectiveEmployeeKey || !selectedStaffIds.length) return;
+
+    await postAction("/api/clock-out", {
+      employeeKey: effectiveEmployeeKey,
+      staffIds: selectedStaffIds,
+    });
+  }
+
+  async function handleSingleStaffClockOut(staffId: string) {
+    if (!effectiveEmployeeKey) return;
+    await postAction("/api/clock-out", {
+      employeeKey: effectiveEmployeeKey,
+      staffId,
+    });
   }
 
   async function handleClockIn() {
@@ -270,7 +312,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
       if (!response.ok) throw new Error(payload.message);
       applyPayload(payload);
-      setMessage("打刻を保存しました。");
+      setMessage(payload.message ?? "打刻を保存しました。");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "処理に失敗しました。");
     } finally {
@@ -348,7 +390,9 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
           <section className="app-card animate-fade-in p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-black">スタッフ選択</h2>
-              <span className="text-xs font-bold text-slate-400">pato</span>
+              <span className="text-xs font-bold text-slate-400">
+                {selectedStaffIds.length}名選択中
+              </span>
             </div>
             <div className="mt-4 grid gap-3">
               {groupStaff.map((staff) => {
@@ -363,11 +407,31 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
                   <StaffCard
                     key={staff.id}
                     staff={status}
-                    selected={selectedStaff?.id === staff.id}
+                    selected={selectedStaffIds.includes(staff.id)}
                     onSelect={() => void selectStaff(staff)}
+                    onClockOut={() => void handleSingleStaffClockOut(staff.id)}
+                    disabled={loading}
                   />
                 );
               })}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={loading || selectedStaffIds.length === 0}
+                onClick={handleBulkClockIn}
+                className="h-12 rounded-full bg-blue-600 text-sm font-black text-white shadow-md shadow-blue-100 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
+              >
+                選択したスタッフを出勤
+              </button>
+              <button
+                type="button"
+                disabled={loading || selectedStaffIds.length === 0}
+                onClick={handleBulkClockOut}
+                className="h-12 rounded-full bg-red-500 text-sm font-black text-white shadow-md shadow-red-100 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
+              >
+                選択したスタッフを退勤
+              </button>
             </div>
           </section>
         )}
@@ -622,10 +686,14 @@ function StaffCard({
   staff,
   selected,
   onSelect,
+  onClockOut,
+  disabled,
 }: {
   staff: GroupStaffStatus;
   selected: boolean;
   onSelect: () => void;
+  onClockOut: () => void;
+  disabled: boolean;
 }) {
   const view = getStatusView(staff.status);
   const time =
@@ -636,23 +704,55 @@ function StaffCard({
         : "未出勤";
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
-      className={`flex w-full items-center justify-between rounded-3xl border p-4 text-left transition active:scale-[0.98] ${
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelect();
+      }}
+      className={`flex w-full items-center justify-between gap-3 rounded-3xl border p-4 text-left transition active:scale-[0.98] ${
         selected
           ? "border-blue-500 bg-blue-50 shadow-md shadow-blue-100"
           : "border-transparent bg-slate-50"
       }`}
     >
-      <div>
-        <p className="text-lg font-black text-slate-950">{staff.name}</p>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span
+            className={`grid h-6 w-6 place-items-center rounded-full border text-xs font-black ${
+              selected ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 text-transparent"
+            }`}
+          >
+            ✓
+          </span>
+          <p className="text-lg font-black text-slate-950">{staff.name}</p>
+        </div>
         <p className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${view.badge}`}>
           {view.label}
         </p>
       </div>
-      <p className="text-xl font-black tracking-normal text-slate-950 tabular-nums">{time}</p>
-    </button>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <p className="text-xl font-black tracking-normal text-slate-950 tabular-nums">{time}</p>
+        {staff.status === "working" && (
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClockOut();
+            }}
+            className={`rounded-full px-4 py-2 text-xs font-black text-white transition active:scale-95 ${
+              disabled ? "bg-slate-300" : "bg-red-500"
+            }`}
+          >
+            退勤
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
