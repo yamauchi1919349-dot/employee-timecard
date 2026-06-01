@@ -13,6 +13,31 @@ import { AttendanceLog, Member, WorkType } from "./types";
 
 type Supabase = ReturnType<typeof createSupabaseAdmin>;
 
+type SupabaseErrorLike = {
+  code?: string;
+  message?: string;
+};
+
+function isMissingAttendanceLogsTable(error: unknown) {
+  const supabaseError = error as SupabaseErrorLike;
+  return (
+    supabaseError?.code === "42P01" &&
+    typeof supabaseError.message === "string" &&
+    supabaseError.message.includes("attendance_logs")
+  );
+}
+
+function throwWithContext(error: unknown, context: string): never {
+  const supabaseError = error as SupabaseErrorLike;
+  const message =
+    error instanceof Error
+      ? error.message
+      : supabaseError?.message ?? "Unknown Supabase error";
+  const code = supabaseError?.code ? ` (${supabaseError.code})` : "";
+
+  throw new Error(`${context}${code}: ${message}`);
+}
+
 export async function getMemberByKey(supabase: Supabase, key: string) {
   const { data, error } = await supabase
     .from("members")
@@ -23,7 +48,7 @@ export async function getMemberByKey(supabase: Supabase, key: string) {
     .limit(1)
     .maybeSingle<Member>();
 
-  if (error) throw error;
+  if (error) throwWithContext(error, "members table lookup failed");
   return data;
 }
 
@@ -40,7 +65,10 @@ export async function getTodayLog(
     .limit(1)
     .maybeSingle<AttendanceLog>();
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingAttendanceLogsTable(error)) return null;
+    throwWithContext(error, "attendance_logs today lookup failed");
+  }
   return data;
 }
 
@@ -57,7 +85,10 @@ export async function getRecentLogs(
     .in("date", dates)
     .order("date", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingAttendanceLogsTable(error)) return [];
+    throwWithContext(error, "attendance_logs recent lookup failed");
+  }
   return (data ?? []) as AttendanceLog[];
 }
 
@@ -68,7 +99,10 @@ export async function getAvailableMonths(supabase: Supabase, memberId: string) {
     .eq("member_id", memberId)
     .order("date", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingAttendanceLogsTable(error)) return [];
+    throwWithContext(error, "attendance_logs months lookup failed");
+  }
 
   return Array.from(
     new Set((data ?? []).map((log) => String(log.date).slice(0, 7))),
@@ -137,7 +171,7 @@ export async function clockIn(params: {
     : supabase.from("attendance_logs").insert(payload);
 
   const { data, error } = await query.select("*").single<AttendanceLog>();
-  if (error) throw error;
+  if (error) throwWithContext(error, "attendance_logs clock-in write failed");
 
   return data;
 }
@@ -195,7 +229,7 @@ export async function clockOut(params: {
     .select("*")
     .single<AttendanceLog>();
 
-  if (error) throw error;
+  if (error) throwWithContext(error, "attendance_logs clock-out write failed");
   return data;
 }
 
@@ -216,7 +250,9 @@ export async function getMonthlyLogs(params: { key: string; month: string }) {
     .lte("date", end)
     .order("date", { ascending: true });
 
-  if (error) throw error;
+  if (error) {
+    if (isMissingAttendanceLogsTable(error)) return { member, logs: [] };
+    throwWithContext(error, "attendance_logs monthly lookup failed");
+  }
   return { member, logs: (data ?? []) as AttendanceLog[] };
 }
-
