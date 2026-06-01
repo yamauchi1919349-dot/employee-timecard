@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   formatLocalDateTime,
   formatMinutes,
@@ -22,9 +22,6 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     initialData?.todayLog?.work_type ?? "normal",
   );
   const [breakFlag, setBreakFlag] = useState(initialData?.todayLog?.break_flag ?? true);
-  const [selectedMonth, setSelectedMonth] = useState(
-    initialData?.availableMonths[0] ?? initialData?.businessDate.slice(0, 7) ?? "",
-  );
   const [clockInEdit, setClockInEdit] = useState("");
   const [clockOutEdit, setClockOutEdit] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -35,11 +32,6 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   const canClockIn = data?.status === "not_clocked_in";
   const canClockOut = data?.status === "working";
-
-  const pdfHref = useMemo(() => {
-    if (!employeeKey || !selectedMonth) return "";
-    return `/api/pdf?k=${encodeURIComponent(employeeKey)}&month=${selectedMonth}`;
-  }, [employeeKey, selectedMonth]);
 
   useEffect(() => {
     const mountTimer = window.setTimeout(() => {
@@ -77,7 +69,6 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     setData(payload);
     setWorkType(payload.todayLog?.work_type ?? "normal");
     setBreakFlag(payload.todayLog?.break_flag ?? true);
-    setSelectedMonth((current) => current || payload.availableMonths[0] || payload.businessDate.slice(0, 7));
   }
 
   async function handleClockIn() {
@@ -153,12 +144,6 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
                 {data?.member.name ?? "読み込み中"}
               </h1>
             </div>
-            <a
-              href="/admin"
-              className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700"
-            >
-              管理
-            </a>
           </div>
 
           <div className="mt-6 text-center">
@@ -273,35 +258,6 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
           </div>
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold">月別PDF出力</h2>
-          <div className="mt-3 grid grid-cols-[1fr_auto] gap-3">
-            <select
-              value={selectedMonth}
-              onChange={(event) => setSelectedMonth(event.target.value)}
-              className="h-12 rounded-md border border-slate-300 bg-white px-3 text-base"
-            >
-              {Array.from(
-                new Set([
-                  ...(data?.availableMonths ?? []),
-                  data?.businessDate.slice(0, 7) ?? "",
-                ]),
-              )
-                .filter(Boolean)
-                .map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-            </select>
-            <a
-              href={pdfHref || undefined}
-              className="flex h-12 items-center rounded-lg bg-orange-500 px-5 font-bold text-white"
-            >
-              PDF
-            </a>
-          </div>
-        </section>
       </div>
 
       {showModal && (
