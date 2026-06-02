@@ -383,7 +383,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   return (
     <main className="min-h-screen bg-white px-5 pb-32 pt-7 text-slate-950">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4">
         {activePanel === "home" && (
           <HomePanel
             displayName={displayName}
@@ -522,8 +522,8 @@ function HomePanel({
   const progress = Math.min(100, Math.max(0, (todayWorkMinutes / 480) * 100));
 
   return (
-    <div className="animate-fade-in">
-      <header className="relative px-1 pt-5 text-center">
+    <div className="flex animate-fade-in flex-col gap-4">
+      <header className="relative px-1 pb-2 pt-5 text-center">
         <div>
           <div>
             <p className="text-sm font-bold text-slate-400">
@@ -548,31 +548,31 @@ function HomePanel({
         </div>
       </header>
 
-      <GlassCard className={`mt-8 p-6 ${statusView.statusCard}`}>
+      <GlassCard className={`p-4 ${statusView.statusCard}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className={`flex items-center gap-4 text-3xl font-black ${statusView.text}`}>
-              <span className={`h-3.5 w-3.5 rounded-full ${statusView.dot} ${status === "working" ? "animate-pulse" : ""}`} />
+            <p className={`flex items-center gap-2 text-xl font-black ${statusView.text}`}>
+              <span className={`h-2.5 w-2.5 rounded-full ${statusView.dot} ${status === "working" ? "animate-pulse" : ""}`} />
               {staffReady ? statusView.label : "スタッフ未選択"}
             </p>
-            <p className="mt-6 text-xl font-black text-[#111827]">
+            <p className="mt-5 text-base font-semibold text-[#0F172A]">
               {todayLog?.clock_in ? `出勤 ${formatTime(todayLog.clock_in)}` : "まだ出勤していません"}
             </p>
           </div>
-          <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-full ${statusView.iconBg}`}>
+          <span className={`ml-auto grid h-14 w-14 shrink-0 place-items-center rounded-full ${statusView.iconBg}`}>
             <Icon name="clock" className="h-7 w-7" />
           </span>
         </div>
       </GlassCard>
 
-      <GlassCard className="p-6">
+      <GlassCard className="p-4">
         <div className="flex items-center justify-between gap-5">
           <div className="min-w-0">
-            <p className="text-base font-black text-[#6B7280]">本日の勤務時間</p>
-            <p className="mt-4 text-[40px] font-black leading-tight tracking-normal text-[#111827]">
+            <p className="text-sm font-semibold text-[#64748B]">本日の勤務時間</p>
+            <p className="mt-4 text-[32px] font-black leading-tight tracking-normal text-[#0F172A]">
               {formatDurationLong(todayWorkMinutes)}
             </p>
-            <p className="mt-5 text-base font-black text-[#7C8AA5]">
+            <p className="mt-4 text-sm font-semibold text-[#64748B]">
               {status === "working" ? "リアルタイムで更新中" : "8時間を目安に表示"}
             </p>
           </div>
@@ -584,32 +584,32 @@ function HomePanel({
         type="button"
         disabled={loading || !staffReady || (!canClockIn && !canClockOut)}
         onClick={canClockIn ? onClockIn : onClockOut}
-        className={`flex min-h-24 items-center justify-between gap-4 rounded-[26px] px-5 text-left text-white shadow-lg shadow-indigo-200/70 transition duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:cursor-default disabled:translate-y-0 disabled:shadow-lg ${statusView.action}`}
+        className={`flex h-20 items-center justify-between gap-3 rounded-2xl px-4 text-left text-white shadow-sm transition duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:cursor-default disabled:translate-y-0 disabled:shadow-sm ${statusView.action}`}
       >
         {loading ? (
           <Spinner light />
         ) : (
           <>
-            <span className="flex items-center gap-4">
-              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border-4 border-white/85">
-                <Icon name={!canClockIn && !canClockOut ? "check" : canClockOut ? "stop" : "play"} className="h-8 w-8" />
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border-2 border-white">
+                <Icon name={!canClockIn && !canClockOut ? "check" : canClockOut ? "stop" : "play"} className="h-6 w-6" />
               </span>
-              <span>
-                <span className="block text-3xl font-black leading-tight">
+              <span className="min-w-0">
+                <span className="block truncate text-xl font-bold leading-tight">
                   {getActionLabel(staffReady, canClockIn, canClockOut)}
                 </span>
-                <span className="mt-1 block text-base font-black text-white/90">
+                <span className="mt-1 block truncate text-sm font-semibold text-white/90">
                   {!canClockIn && !canClockOut ? "おつかれさまでした！" : canClockOut ? "退勤時刻を確認します" : "勤務を開始します"}
                 </span>
               </span>
             </span>
-            <Icon name="chevronRight" className="h-8 w-8 shrink-0" />
+            <Icon name="chevronRight" className="h-6 w-6 shrink-0" />
           </>
         )}
       </button>
 
-      <GlassCard className="p-5">
-        <div className="grid grid-cols-2 gap-5">
+      <GlassCard className="p-4">
+        <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-3 text-sm font-black text-[#6B7280]">
             <span className="flex items-center gap-2 text-[#6B7280]">
               <Icon name="bag" className="h-5 w-5 text-[#6366F1]" />
@@ -619,7 +619,7 @@ function HomePanel({
               value={workType}
               disabled={!canClockIn}
               onChange={(event) => onWorkTypeChange(event.target.value as WorkType)}
-              className="h-16 rounded-[24px] border border-slate-100 bg-white px-5 text-base font-black text-slate-900 shadow-md shadow-slate-200/70 outline-none transition focus:ring-2 focus:ring-[#6366F1]/30 disabled:text-slate-400"
+              className="h-12 rounded-xl border border-slate-100 bg-gray-50 px-4 text-base font-bold text-slate-900 shadow-sm outline-none transition focus:ring-2 focus:ring-[#6366F1]/30 disabled:text-slate-400"
             >
               <option value="normal">通常勤務</option>
               <option value="kitchen_car">キッチンカー</option>
@@ -921,8 +921,8 @@ function BottomNav({
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_30px_rgb(15_23_42_/_0.08)] backdrop-blur-xl">
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-3">
+    <nav className="fixed inset-x-0 bottom-0 z-20 rounded-t-2xl border-t border-slate-100 bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-sm backdrop-blur-xl">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
         {tabs.map((tab) => {
           const active = activePanel === tab.id;
           return (
@@ -930,13 +930,13 @@ function BottomNav({
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              className={`flex h-[76px] flex-col items-center justify-center rounded-[22px] text-sm font-black transition duration-200 active:scale-95 ${
+              className={`flex h-16 flex-col items-center justify-center rounded-2xl text-sm font-bold transition duration-200 active:scale-95 ${
                 active
-                  ? "bg-white text-[#6366F1] shadow-md shadow-slate-200/80"
+                  ? "bg-white text-[#6366F1] shadow-sm"
                   : "text-[#6B7280] hover:bg-slate-50"
               }`}
             >
-              <Icon name={tab.icon} className="h-7 w-7" />
+              <Icon name={tab.icon} className="h-6 w-6" />
               <span className="mt-1">{tab.label}</span>
             </button>
           );
@@ -1108,7 +1108,7 @@ function BreakToggle({
         type="button"
         disabled={disabled}
         onClick={() => onChange(!value)}
-        className={`h-16 rounded-[24px] px-4 text-base font-black shadow-md transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:opacity-50 ${
+        className={`h-12 rounded-xl px-4 text-base font-bold shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:opacity-50 ${
           value
             ? "bg-[#FF7A1A] text-white shadow-orange-200/80"
             : "bg-slate-100 text-slate-500 shadow-slate-200/80"
@@ -1129,7 +1129,7 @@ function GlassCard({
 }) {
   return (
     <section
-      className={`rounded-[26px] border border-slate-100 bg-white shadow-[0_12px_34px_rgb(15_23_42_/_0.10)] transition duration-300 ${className}`}
+      className={`rounded-2xl border border-slate-100 bg-white shadow-sm transition duration-300 ${className}`}
     >
       {children}
     </section>
@@ -1225,8 +1225,8 @@ function ProgressRing({
     status === "not_clocked_in" ? "stroke-slate-300" : "stroke-[#6366F1]";
 
   return (
-    <div className="relative grid h-36 w-36 shrink-0 place-items-center">
-      <svg className="-rotate-90" viewBox="0 0 120 120" aria-hidden="true">
+    <div className="relative grid h-20 w-20 shrink-0 place-items-center">
+      <svg className="-rotate-90 h-20 w-20" viewBox="0 0 120 120" aria-hidden="true">
         <circle
           cx="60"
           cy="60"
@@ -1248,8 +1248,8 @@ function ProgressRing({
         />
       </svg>
       <div className="absolute text-center">
-        <p className="text-base font-black text-[#6B7280]">8h</p>
-        <p className="mt-1 max-w-24 text-base font-black leading-tight text-[#111827]">{label}</p>
+        <p className="text-sm font-bold text-[#64748B]">8h</p>
+        <p className="mt-1 max-w-16 text-sm font-bold leading-tight text-[#0F172A]">{label}</p>
       </div>
     </div>
   );
