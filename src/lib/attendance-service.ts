@@ -16,6 +16,7 @@ import {
   CalendarDayType,
   GroupStaffConfig,
   Member,
+  PdfEmailRecipient,
   WorkType,
 } from "./types";
 
@@ -178,6 +179,15 @@ function isMissingCalendarDaysTable(error: unknown) {
   );
 }
 
+function isMissingTable(error: unknown, tableName: string) {
+  const supabaseError = error as SupabaseErrorLike;
+  return (
+    supabaseError?.code === "42P01" &&
+    typeof supabaseError.message === "string" &&
+    supabaseError.message.includes(tableName)
+  );
+}
+
 export async function clockIn(params: {
   key: string;
   workType: WorkType;
@@ -313,10 +323,10 @@ export async function getMonthlyLogs(params: {
   const { data, error } = await query;
 
   if (error) {
-    if (isMissingAttendanceLogsTable(error)) return { member, logs: [] };
+    if (isMissingAttendanceLogsTable(error)) return { member, logs: [], staff };
     throwWithContext(error, "attendance_logs monthly lookup failed");
   }
-  return { member, logs: (data ?? []) as AttendanceLog[] };
+  return { member, logs: (data ?? []) as AttendanceLog[], staff };
 }
 
 export async function getCalendarDays(params: {
@@ -414,6 +424,110 @@ export async function saveCalendarDay(params: {
   return data;
 }
 
+export async function getPdfEmailRecipients(params: {
+  key: string;
+  staffId?: string | null;
+}) {
+  const supabase = createSupabaseAdmin();
+  const member = await getMemberByKey(supabase, params.key);
+
+  if (!member) throw new Error("従業員が見つかりません。");
+
+  const staff = resolveStaff(params.key, params.staffId);
+  let query = supabase
+    .from("pdf_email_recipients")
+    .select("*")
+    .eq("member_id", member.id)
+    .eq("active", true)
+    .order("created_at", { ascending: true });
+
+  query = applyStaffFilter(query, staff?.id ?? null);
+  const { data, error } = await query;
+
+  if (error) {
+    if (isMissingTable(error, "pdf_email_recipients")) return { member, recipients: [], staff };
+    throwWithContext(error, "pdf_email_recipients lookup failed");
+  }
+
+  return {
+    member,
+    recipients: (data ?? []) as PdfEmailRecipient[],
+    staff,
+  };
+}
+
+export async function addPdfEmailRecipient(params: {
+  key: string;
+  email: string;
+  staffId?: string | null;
+}) {
+  const email = normalizeEmail(params.email);
+  if (!isValidEmail(email)) throw new Error("メールアドレスの形式が正しくありません。");
+
+  const supabase = createSupabaseAdmin();
+  const member = await getMemberByKey(supabase, params.key);
+
+  if (!member) throw new Error("従業員が見つかりません。");
+
+  const staff = resolveStaff(params.key, params.staffId);
+  let existingQuery = supabase
+    .from("pdf_email_recipients")
+    .select("*")
+    .eq("member_id", member.id)
+    .eq("email", email)
+    .limit(1);
+
+  existingQuery = applyStaffFilter(existingQuery, staff?.id ?? null);
+  const { data: existing, error: existingError } =
+    await existingQuery.maybeSingle<PdfEmailRecipient>();
+
+  if (existingError) {
+    if (isMissingTable(existingError, "pdf_email_recipients")) {
+      throw new Error("PDF送信先テーブルがありません。Supabaseでschema.sqlを実行してください。");
+    }
+    throwWithContext(existingError, "pdf_email_recipients lookup before write failed");
+  }
+
+  const payload = {
+    company_id: member.company_id,
+    member_id: member.id,
+    staff_id: staff?.id ?? null,
+    email,
+    active: true,
+  };
+  const query = existing
+    ? supabase.from("pdf_email_recipients").update(payload).eq("id", existing.id)
+    : supabase.from("pdf_email_recipients").insert(payload);
+
+  const { data, error } = await query.select("*").single<PdfEmailRecipient>();
+  if (error) throwWithContext(error, "pdf_email_recipients write failed");
+
+  return data;
+}
+
+export async function deletePdfEmailRecipient(params: {
+  key: string;
+  id: string;
+  staffId?: string | null;
+}) {
+  const supabase = createSupabaseAdmin();
+  const member = await getMemberByKey(supabase, params.key);
+
+  if (!member) throw new Error("従業員が見つかりません。");
+
+  const staff = resolveStaff(params.key, params.staffId);
+  let query = supabase
+    .from("pdf_email_recipients")
+    .update({ active: false })
+    .eq("id", params.id)
+    .eq("member_id", member.id);
+
+  query = applyStaffFilter(query, staff?.id ?? null);
+  const { error } = await query;
+
+  if (error) throwWithContext(error, "pdf_email_recipients delete failed");
+}
+
 async function getStaffStatuses(
   supabase: Supabase,
   memberId: string,
@@ -483,4 +597,12 @@ function applyStaffFilter<
   staffId?: string | null,
 ) {
   return staffId ? query.eq("staff_id", staffId) : query.is("staff_id", null);
+}
+
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }

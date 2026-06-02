@@ -48,6 +48,17 @@ create table if not exists public.member_calendar_days (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.pdf_email_recipients (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  member_id uuid not null references public.members(id) on delete cascade,
+  staff_id text,
+  email text not null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.attendance_logs
   add column if not exists staff_id text,
   add column if not exists staff_name text;
@@ -74,6 +85,14 @@ create unique index if not exists member_calendar_days_member_date_unique_null_s
 create unique index if not exists member_calendar_days_member_staff_date_unique
   on public.member_calendar_days(company_id, member_id, staff_id, date)
   where staff_id is not null;
+create index if not exists pdf_email_recipients_member_staff_active_idx
+  on public.pdf_email_recipients(member_id, staff_id, active);
+create unique index if not exists pdf_email_recipients_member_email_unique_null_staff
+  on public.pdf_email_recipients(company_id, member_id, (lower(email)))
+  where staff_id is null and active = true;
+create unique index if not exists pdf_email_recipients_member_staff_email_unique
+  on public.pdf_email_recipients(company_id, member_id, staff_id, (lower(email)))
+  where staff_id is not null and active = true;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -97,10 +116,17 @@ before update on public.member_calendar_days
 for each row
 execute function public.set_updated_at();
 
+drop trigger if exists pdf_email_recipients_set_updated_at on public.pdf_email_recipients;
+create trigger pdf_email_recipients_set_updated_at
+before update on public.pdf_email_recipients
+for each row
+execute function public.set_updated_at();
+
 alter table public.companies enable row level security;
 alter table public.members enable row level security;
 alter table public.attendance_logs enable row level security;
 alter table public.member_calendar_days enable row level security;
+alter table public.pdf_email_recipients enable row level security;
 
 -- The app uses SUPABASE_SERVICE_ROLE_KEY from server-side API routes.
 -- Add public/authenticated policies later when login and admin roles are introduced.

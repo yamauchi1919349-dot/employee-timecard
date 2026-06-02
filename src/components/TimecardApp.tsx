@@ -14,6 +14,7 @@ import {
   CalendarDayType,
   GroupStaffConfig,
   GroupStaffStatus,
+  PdfEmailRecipient,
   TimecardPayload,
   WorkType,
 } from "@/lib/types";
@@ -57,6 +58,10 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   const [monthlyLogs, setMonthlyLogs] = useState<AttendanceLog[]>([]);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
   const [calendarLoading, setCalendarLoading] = useState(false);
+  const [pdfRecipients, setPdfRecipients] = useState<PdfEmailRecipient[]>([]);
+  const [pdfEmail, setPdfEmail] = useState("");
+  const [pdfEmailLoading, setPdfEmailLoading] = useState(false);
+  const [pdfMessage, setPdfMessage] = useState("");
   const [clockInEdit, setClockInEdit] = useState("");
   const [clockOutEdit, setClockOutEdit] = useState("");
   const [activePanel, setActivePanel] = useState<ActivePanel>("home");
@@ -289,6 +294,46 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     staffReady,
   ]);
 
+  useEffect(() => {
+    if (activePanel !== "pdf") return;
+
+    if (!effectiveEmployeeKey || !staffReady) {
+      queueMicrotask(() => setPdfRecipients([]));
+      return;
+    }
+
+    let ignore = false;
+    const params = new URLSearchParams({ k: effectiveEmployeeKey });
+    if (isGroupMode && selectedStaff?.id) params.set("staffId", selectedStaff.id);
+
+    queueMicrotask(() => {
+      setPdfEmailLoading(true);
+
+      fetch(`/api/pdf-recipients?${params.toString()}`)
+        .then(async (response) => {
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.message);
+          return payload.recipients as PdfEmailRecipient[];
+        })
+        .then((recipients) => {
+          if (!ignore) setPdfRecipients(recipients);
+        })
+        .catch((error) => {
+          if (!ignore) {
+            setPdfRecipients([]);
+            setPdfMessage(error instanceof Error ? error.message : "PDF送信先の取得に失敗しました。");
+          }
+        })
+        .finally(() => {
+          if (!ignore) setPdfEmailLoading(false);
+        });
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [activePanel, effectiveEmployeeKey, isGroupMode, selectedStaff?.id, staffReady]);
+
   const loadData = useCallback(async () => {
     if (!effectiveEmployeeKey) return;
     await fetchTimecardData(effectiveEmployeeKey, isGroupMode ? selectedStaff?.id : null);
@@ -420,6 +465,97 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     }
   }
 
+  async function handleAddPdfRecipient() {
+    if (!effectiveEmployeeKey || !pdfEmail.trim()) return;
+
+    setPdfEmailLoading(true);
+    setPdfMessage("");
+
+    try {
+      const response = await fetch("/api/pdf-recipients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          k: effectiveEmployeeKey,
+          email: pdfEmail,
+          staffId: isGroupMode ? selectedStaff?.id : null,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) throw new Error(payload.message);
+
+      setPdfRecipients((current) => {
+        const recipient = payload.recipient as PdfEmailRecipient;
+        return [
+          ...current.filter((item) => item.id !== recipient.id),
+          recipient,
+        ];
+      });
+      setPdfEmail("");
+    } catch (error) {
+      setPdfMessage(error instanceof Error ? error.message : "PDF送信先の追加に失敗しました。");
+    } finally {
+      setPdfEmailLoading(false);
+    }
+  }
+
+  async function handleDeletePdfRecipient(id: string) {
+    if (!effectiveEmployeeKey) return;
+
+    setPdfEmailLoading(true);
+    setPdfMessage("");
+
+    try {
+      const response = await fetch("/api/pdf-recipients", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          k: effectiveEmployeeKey,
+          id,
+          staffId: isGroupMode ? selectedStaff?.id : null,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) throw new Error(payload.message);
+
+      setPdfRecipients((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      setPdfMessage(error instanceof Error ? error.message : "PDF送信先の削除に失敗しました。");
+    } finally {
+      setPdfEmailLoading(false);
+    }
+  }
+
+  async function handleSendPdfEmail() {
+    if (!effectiveEmployeeKey || !selectedMonth || !pdfRecipients.length) return;
+
+    setPdfEmailLoading(true);
+    setPdfMessage("");
+
+    try {
+      const response = await fetch("/api/pdf/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          k: effectiveEmployeeKey,
+          month: selectedMonth,
+          staffId: isGroupMode ? selectedStaff?.id : null,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) throw new Error(payload.message);
+
+      setPdfMessage(`${payload.sentTo.length}件の送信先へPDFを送信しました。`);
+    } catch (error) {
+      setPdfMessage(error instanceof Error ? error.message : "PDFメール送信に失敗しました。");
+    } finally {
+      setPdfEmailLoading(false);
+    }
+  }
+
   async function postAction(path: string, body: unknown) {
     setLoading(true);
     setMessage("");
@@ -540,7 +676,20 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
             selectedMonth={selectedMonth || currentMonth}
             monthOptions={monthOptions}
             pdfUrl={pdfUrl}
+            groupStaff={groupStaff}
+            staffStatuses={data?.staffStatuses ?? []}
+            selectedStaffIds={selectedStaffIds}
+            isGroupMode={isGroupMode}
+            recipients={pdfRecipients}
+            email={pdfEmail}
+            loading={pdfEmailLoading}
+            message={pdfMessage}
             onMonthChange={setSelectedMonth}
+            onSelectStaff={selectStaff}
+            onEmailChange={setPdfEmail}
+            onAddRecipient={handleAddPdfRecipient}
+            onDeleteRecipient={handleDeletePdfRecipient}
+            onSendEmail={handleSendPdfEmail}
           />
         )}
       </div>
@@ -1106,17 +1255,54 @@ function PdfPanel({
   selectedMonth,
   monthOptions,
   pdfUrl,
+  groupStaff,
+  staffStatuses,
+  selectedStaffIds,
+  isGroupMode,
+  recipients,
+  email,
+  loading,
+  message,
   onMonthChange,
+  onSelectStaff,
+  onEmailChange,
+  onAddRecipient,
+  onDeleteRecipient,
+  onSendEmail,
 }: {
   staffReady: boolean;
   selectedMonth: string;
   monthOptions: string[];
   pdfUrl: string;
+  groupStaff: GroupStaffConfig[] | null;
+  staffStatuses: GroupStaffStatus[];
+  selectedStaffIds: string[];
+  isGroupMode: boolean;
+  recipients: PdfEmailRecipient[];
+  email: string;
+  loading: boolean;
+  message: string;
   onMonthChange: (month: string) => void;
+  onSelectStaff: (staff: GroupStaffConfig) => void;
+  onEmailChange: (email: string) => void;
+  onAddRecipient: () => void;
+  onDeleteRecipient: (id: string) => void;
+  onSendEmail: () => void;
 }) {
+  const canSendEmail = staffReady && recipients.length > 0 && !loading;
+
   return (
     <div className="animate-fade-in">
       <ScreenTitle icon="file" title="PDF" subtitle="月別勤怠を出力" />
+      {isGroupMode && groupStaff && (
+        <CalendarStaffSelector
+          staffList={groupStaff}
+          staffStatuses={staffStatuses}
+          selectedStaffIds={selectedStaffIds}
+          loading={loading}
+          onSelect={onSelectStaff}
+        />
+      )}
       <GlassCard className="mt-5 p-6">
         <MonthSelect
           selectedMonth={selectedMonth}
@@ -1136,14 +1322,69 @@ function PdfPanel({
           <Icon name="download" className="h-7 w-7" />
           PDFを出力
         </a>
+        <button
+          type="button"
+          disabled={!canSendEmail}
+          onClick={onSendEmail}
+          className="mt-4 flex h-16 w-full items-center justify-center gap-3 rounded-[28px] bg-[#6366F1] text-xl font-black text-white shadow-sm transition active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400"
+        >
+          <Icon name="mail" className="h-6 w-6" />
+          PDFをメール送信
+        </button>
+        {recipients.length === 0 && (
+          <p className="mt-3 text-center text-sm font-bold text-slate-400">
+            送信先メールアドレスを登録してください
+          </p>
+        )}
       </GlassCard>
+
       <GlassCard className="mt-5 p-5">
-        <p className="text-sm font-black text-slate-400 dark:text-slate-500">今後の拡張</p>
-        <div className="mt-4 grid gap-3">
-          <ExportOption label="PDF種類追加" />
-          <ExportOption label="CSV出力" />
-          <ExportOption label="給与連携" />
+        <p className="text-base font-black text-[#0F172A]">PDF送信先メールアドレス設定</p>
+        <div className="mt-4 flex gap-3">
+          <input
+            type="email"
+            value={email}
+            disabled={!staffReady || loading}
+            onChange={(event) => onEmailChange(event.target.value)}
+            placeholder="mail@example.com"
+            className="min-w-0 flex-1 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-base font-bold text-slate-950 outline-none transition focus:ring-2 focus:ring-[#6366F1]/30 disabled:text-slate-400"
+          />
+          <button
+            type="button"
+            disabled={!staffReady || !email.trim() || loading}
+            onClick={onAddRecipient}
+            className="h-12 rounded-2xl bg-[#6366F1] px-5 text-base font-black text-white shadow-sm transition active:scale-95 disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            追加
+          </button>
         </div>
+        <div className="mt-4 grid gap-3">
+          {recipients.length ? (
+            recipients.map((recipient) => (
+              <div
+                key={recipient.id}
+                className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3"
+              >
+                <span className="min-w-0 truncate text-base font-bold text-[#0F172A]">
+                  {recipient.email}
+                </span>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => onDeleteRecipient(recipient.id)}
+                  className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-black text-rose-500 shadow-sm transition active:scale-95 disabled:opacity-50"
+                >
+                  削除
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="rounded-2xl bg-slate-50 px-4 py-3 text-center text-sm font-bold text-slate-400">
+              登録済みメールアドレスはありません
+            </p>
+          )}
+        </div>
+        {message.trim() && <MessageCard message={message} />}
       </GlassCard>
     </div>
   );
@@ -1437,15 +1678,6 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ExportOption({ label }: { label: string }) {
-  return (
-    <div className="flex h-14 items-center justify-between rounded-3xl bg-white/70 px-4 shadow-sm dark:bg-white/10">
-      <span className="text-base font-black text-slate-600 dark:text-slate-300">{label}</span>
-      <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-lg font-black text-slate-400 dark:bg-white/10">+</span>
-    </div>
-  );
-}
-
 function EmptyStaffNotice() {
   return <EmptyState message="スタッフを選択すると表示されます。" />;
 }
@@ -1537,6 +1769,7 @@ type IconName =
   | "download"
   | "file"
   | "home"
+  | "mail"
   | "play"
   | "refresh"
   | "stop"
@@ -1621,6 +1854,13 @@ function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: str
         <svg {...common}>
           <path d="m4 11 8-7 8 7" />
           <path d="M6 10v10h12V10" />
+        </svg>
+      );
+    case "mail":
+      return (
+        <svg {...common}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="m3 7 9 6 9-6" />
         </svg>
       );
     case "play":

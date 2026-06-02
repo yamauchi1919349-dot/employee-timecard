@@ -48,6 +48,17 @@ export type CalendarDay = {
   updated_at: string;
 };
 
+export type PdfEmailRecipient = {
+  id: string;
+  company_id: string;
+  member_id: string;
+  staff_id: string | null;
+  email: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type GroupStaffConfig = {
   id: string;
   name: string;
