@@ -424,7 +424,6 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
           <MonthlyPanel
             staffReady={staffReady}
             selectedMonth={selectedMonth || currentMonth}
-            monthOptions={monthOptions}
             summary={monthlySummary}
             logs={monthlyLogs}
             loading={summaryLoading}
@@ -808,7 +807,6 @@ function RecentPanel({ staffReady, logs }: { staffReady: boolean; logs: Attendan
 function MonthlyPanel({
   staffReady,
   selectedMonth,
-  monthOptions,
   summary,
   logs,
   loading,
@@ -816,7 +814,6 @@ function MonthlyPanel({
 }: {
   staffReady: boolean;
   selectedMonth: string;
-  monthOptions: string[];
   summary: MonthlySummary | null;
   logs: AttendanceLog[];
   loading: boolean;
@@ -824,18 +821,19 @@ function MonthlyPanel({
 }) {
   return (
     <div className="animate-fade-in">
-      <ScreenTitle icon="calendar" title="月次" subtitle="ひと月のまとめ" />
-      <MonthSelect
+      <header className="px-1 pt-2">
+        <h1 className="text-4xl font-black tracking-normal">月次</h1>
+        <p className="mt-1 text-base font-bold text-slate-400 dark:text-slate-500">ひと月のまとめ</p>
+      </header>
+      <MonthStepper
         selectedMonth={selectedMonth}
-        monthOptions={monthOptions}
         disabled={!staffReady}
         onMonthChange={onMonthChange}
       />
       {staffReady ? (
         <>
           <GlassCard className="mt-5 p-6">
-            <p className="text-base font-black text-slate-500 dark:text-slate-400">{formatMonthLabel(selectedMonth)}</p>
-            <p className="mt-3 text-5xl font-black">
+            <p className="text-5xl font-black">
               {loading ? "..." : formatDurationLong(summary?.totalWorkMinutes ?? 0)}
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
@@ -1087,6 +1085,45 @@ function MonthSelect({
   );
 }
 
+function MonthStepper({
+  selectedMonth,
+  disabled,
+  onMonthChange,
+}: {
+  selectedMonth: string;
+  disabled: boolean;
+  onMonthChange: (month: string) => void;
+}) {
+  const previousMonth = shiftMonth(selectedMonth, -1);
+  const nextMonth = shiftMonth(selectedMonth, 1);
+
+  return (
+    <div className="mt-5 grid grid-cols-[48px_1fr_48px] items-center rounded-2xl bg-white px-2 py-2 shadow-sm">
+      <button
+        type="button"
+        disabled={disabled || !previousMonth}
+        onClick={() => previousMonth && onMonthChange(previousMonth)}
+        className="grid h-12 w-12 place-items-center rounded-2xl text-[#6366F1] transition hover:bg-slate-50 active:scale-95 disabled:text-slate-300"
+        aria-label="前の月"
+      >
+        <Icon name="chevronLeft" className="h-6 w-6" />
+      </button>
+      <p className="text-center text-xl font-black text-[#0F172A]">
+        {formatMonthLabel(selectedMonth)}
+      </p>
+      <button
+        type="button"
+        disabled={disabled || !nextMonth}
+        onClick={() => nextMonth && onMonthChange(nextMonth)}
+        className="grid h-12 w-12 place-items-center rounded-2xl text-[#6366F1] transition hover:bg-slate-50 active:scale-95 disabled:text-slate-300"
+        aria-label="次の月"
+      >
+        <Icon name="chevronRight" className="h-6 w-6" />
+      </button>
+    </div>
+  );
+}
+
 function BreakToggle({
   label,
   value,
@@ -1259,6 +1296,7 @@ type IconName =
   | "bag"
   | "calendar"
   | "check"
+  | "chevronLeft"
   | "chevronRight"
   | "clock"
   | "coffee"
@@ -1302,6 +1340,12 @@ function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: str
       return (
         <svg {...common}>
           <path d="m5 12 4 4L19 6" />
+        </svg>
+      );
+    case "chevronLeft":
+      return (
+        <svg {...common}>
+          <path d="m15 18-6-6 6-6" />
         </svg>
       );
     case "chevronRight":
@@ -1482,4 +1526,14 @@ function formatMonthLabel(month: string) {
   const [year, monthNumber] = month.split("-").map(Number);
   if (!year || !monthNumber) return month;
   return `${year}年${monthNumber}月`;
+}
+
+function shiftMonth(month: string, amount: number) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  if (!year || !monthNumber) return "";
+
+  const date = new Date(year, monthNumber - 1 + amount, 1);
+  const nextYear = date.getFullYear();
+  const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
+  return `${nextYear}-${nextMonth}`;
 }
