@@ -472,7 +472,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   }
 
   return (
-    <main className="min-h-screen bg-white px-5 pb-32 pt-7 text-slate-950">
+    <main className="min-h-screen bg-white px-5 pb-32 pt-[max(44px,calc(env(safe-area-inset-top)+12px))] text-slate-950">
       <div className="mx-auto flex w-full max-w-md flex-col gap-4">
         {activePanel === "home" && (
           <HomePanel
