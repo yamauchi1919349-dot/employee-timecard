@@ -622,6 +622,7 @@ function HomePanel({
   onSingleStaffClockOut: (staffId: string) => void;
 }) {
   const progress = Math.min(100, Math.max(0, (todayWorkMinutes / 480) * 100));
+  const visibleMessage = message.trim();
 
   return (
     <div className="flex animate-fade-in flex-col gap-4">
@@ -749,7 +750,7 @@ function HomePanel({
         />
       )}
 
-      {message && <MessageCard message={message} />}
+      {visibleMessage && <MessageCard message={visibleMessage} />}
     </div>
   );
 }
@@ -1458,9 +1459,12 @@ function EmptyState({ message }: { message: string }) {
 }
 
 function MessageCard({ message }: { message: string }) {
+  const visibleMessage = message.trim();
+  if (!visibleMessage) return null;
+
   return (
     <p className="rounded-3xl border border-blue-100 bg-blue-50/90 px-5 py-4 text-base font-bold leading-7 text-blue-800 shadow-sm backdrop-blur-xl dark:border-blue-400/20 dark:bg-blue-500/15 dark:text-blue-100">
-      {message}
+      {visibleMessage}
     </p>
   );
 }

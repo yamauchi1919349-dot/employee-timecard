@@ -15,9 +15,9 @@ export const companyRuntimeConfigs: CompanyRuntimeConfig[] = [
     members: {
       pato: {
         groupStaff: [
-          { id: "P001", name: "田中" },
-          { id: "P002", name: "佐藤" },
-          { id: "P003", name: "鈴木" },
+          { id: "P001", name: "守屋モリエ" },
+          { id: "P002", name: "長谷川恵子" },
+          { id: "P003", name: "佐々木美和" },
         ],
       },
     },
