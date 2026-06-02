@@ -10,7 +10,14 @@ import {
   parseJapaneseDatetimeLocal,
 } from "./attendance";
 import { getGroupStaffConfig, getGroupStaffConfigs } from "./group-staff";
-import { AttendanceLog, GroupStaffConfig, Member, WorkType } from "./types";
+import {
+  AttendanceLog,
+  CalendarDay,
+  CalendarDayType,
+  GroupStaffConfig,
+  Member,
+  WorkType,
+} from "./types";
 
 type Supabase = ReturnType<typeof createSupabaseAdmin>;
 
@@ -162,6 +169,15 @@ export async function getTimecardData(
   };
 }
 
+function isMissingCalendarDaysTable(error: unknown) {
+  const supabaseError = error as SupabaseErrorLike;
+  return (
+    supabaseError?.code === "42P01" &&
+    typeof supabaseError.message === "string" &&
+    supabaseError.message.includes("member_calendar_days")
+  );
+}
+
 export async function clockIn(params: {
   key: string;
   workType: WorkType;
@@ -301,6 +317,101 @@ export async function getMonthlyLogs(params: {
     throwWithContext(error, "attendance_logs monthly lookup failed");
   }
   return { member, logs: (data ?? []) as AttendanceLog[] };
+}
+
+export async function getCalendarDays(params: {
+  key: string;
+  month: string;
+  staffId?: string | null;
+}) {
+  const supabase = createSupabaseAdmin();
+  const member = await getMemberByKey(supabase, params.key);
+
+  if (!member) throw new Error("従業員が見つかりません。");
+
+  const start = `${params.month}-01`;
+  const [year, month] = params.month.split("-").map(Number);
+  const end = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+  const staff = resolveStaff(params.key, params.staffId);
+  let query = supabase
+    .from("member_calendar_days")
+    .select("*")
+    .eq("member_id", member.id)
+    .gte("date", start)
+    .lte("date", end)
+    .order("date", { ascending: true });
+
+  query = applyStaffFilter(query, staff?.id ?? null);
+  const { data, error } = await query;
+
+  if (error) {
+    if (isMissingCalendarDaysTable(error)) return { member, days: [] };
+    throwWithContext(error, "member_calendar_days lookup failed");
+  }
+
+  return { member, days: (data ?? []) as CalendarDay[] };
+}
+
+export async function saveCalendarDay(params: {
+  key: string;
+  date: string;
+  dayType: CalendarDayType;
+  staffId?: string | null;
+  note?: string | null;
+}) {
+  const supabase = createSupabaseAdmin();
+  const member = await getMemberByKey(supabase, params.key);
+
+  if (!member) throw new Error("従業員が見つかりません。");
+
+  const staff = resolveStaff(params.key, params.staffId);
+  let existingQuery = supabase
+    .from("member_calendar_days")
+    .select("*")
+    .eq("member_id", member.id)
+    .eq("date", params.date)
+    .limit(1);
+
+  existingQuery = applyStaffFilter(existingQuery, staff?.id ?? null);
+  const { data: existing, error: existingError } =
+    await existingQuery.maybeSingle<CalendarDay>();
+
+  if (existingError) {
+    if (isMissingCalendarDaysTable(existingError)) {
+      throw new Error("休日設定テーブルがありません。Supabaseでschema.sqlを実行してください。");
+    }
+    throwWithContext(existingError, "member_calendar_days lookup before write failed");
+  }
+
+  if (params.dayType === "workday") {
+    if (!existing) return null;
+
+    const { error } = await supabase
+      .from("member_calendar_days")
+      .delete()
+      .eq("id", existing.id);
+
+    if (error) throwWithContext(error, "member_calendar_days delete failed");
+    return null;
+  }
+
+  const payload = {
+    company_id: member.company_id,
+    member_id: member.id,
+    staff_id: staff?.id ?? null,
+    date: params.date,
+    day_type: params.dayType,
+    note: params.note ?? null,
+  };
+
+  const query = existing
+    ? supabase.from("member_calendar_days").update(payload).eq("id", existing.id)
+    : supabase.from("member_calendar_days").insert(payload);
+
+  const { data, error } = await query.select("*").single<CalendarDay>();
+  if (error) throwWithContext(error, "member_calendar_days write failed");
+
+  return data;
 }
 
 async function getStaffStatuses(

@@ -1,5 +1,6 @@
 export type WorkType = "normal" | "kitchen_car";
 export type AttendanceStatus = "not_clocked_in" | "working" | "clocked_out";
+export type CalendarDayType = "workday" | "holiday";
 
 export type Company = {
   id: string;
@@ -33,6 +34,18 @@ export type AttendanceLog = {
   created_at: string;
   updated_at: string;
   members?: Pick<Member, "name" | "key"> | null;
+};
+
+export type CalendarDay = {
+  id: string;
+  company_id: string;
+  member_id: string;
+  staff_id: string | null;
+  date: string;
+  day_type: CalendarDayType;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type GroupStaffConfig = {

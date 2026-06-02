@@ -10,6 +10,8 @@ import {
 import {
   AttendanceLog,
   AttendanceStatus,
+  CalendarDay,
+  CalendarDayType,
   GroupStaffConfig,
   GroupStaffStatus,
   TimecardPayload,
@@ -22,7 +24,7 @@ type Props = {
   initialMessage?: string;
 };
 
-type ActivePanel = "home" | "recent" | "monthly" | "pdf";
+type ActivePanel = "home" | "calendar" | "monthly" | "pdf";
 
 type MonthlySummary = {
   workedDays: number;
@@ -53,6 +55,8 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   );
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [monthlyLogs, setMonthlyLogs] = useState<AttendanceLog[]>([]);
+  const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
   const [clockInEdit, setClockInEdit] = useState("");
   const [clockOutEdit, setClockOutEdit] = useState("");
   const [activePanel, setActivePanel] = useState<ActivePanel>("home");
@@ -235,6 +239,56 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     };
   }, [effectiveEmployeeKey, isGroupMode, selectedMonth, selectedStaff?.id, staffReady]);
 
+  useEffect(() => {
+    if (activePanel !== "calendar") return;
+
+    if (!effectiveEmployeeKey || !selectedMonth || !staffReady) {
+      queueMicrotask(() => setCalendarDays([]));
+      return;
+    }
+
+    let ignore = false;
+    const params = new URLSearchParams({
+      k: effectiveEmployeeKey,
+      month: selectedMonth,
+    });
+    if (isGroupMode && selectedStaff?.id) params.set("staffId", selectedStaff.id);
+
+    queueMicrotask(() => {
+      setCalendarLoading(true);
+
+      fetch(`/api/calendar-days?${params.toString()}`)
+        .then(async (response) => {
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.message);
+          return payload.days as CalendarDay[];
+        })
+        .then((days) => {
+          if (!ignore) setCalendarDays(days);
+        })
+        .catch((error) => {
+          if (!ignore) {
+            setCalendarDays([]);
+            setMessage(error instanceof Error ? error.message : "休日設定の取得に失敗しました。");
+          }
+        })
+        .finally(() => {
+          if (!ignore) setCalendarLoading(false);
+        });
+    });
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    activePanel,
+    effectiveEmployeeKey,
+    isGroupMode,
+    selectedMonth,
+    selectedStaff?.id,
+    staffReady,
+  ]);
+
   const loadData = useCallback(async () => {
     if (!effectiveEmployeeKey) return;
     await fetchTimecardData(effectiveEmployeeKey, isGroupMode ? selectedStaff?.id : null);
@@ -330,6 +384,42 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     setShowModal(false);
   }
 
+  async function handleCalendarDayToggle(dateKey: string) {
+    if (!effectiveEmployeeKey || !staffReady) return;
+
+    const existing = calendarDays.find((day) => day.date === dateKey);
+    const nextDayType: CalendarDayType =
+      existing?.day_type === "holiday" ? "workday" : "holiday";
+
+    setCalendarLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/calendar-days", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          k: effectiveEmployeeKey,
+          date: dateKey,
+          dayType: nextDayType,
+          staffId: isGroupMode ? selectedStaff?.id : null,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) throw new Error(payload.message);
+
+      setCalendarDays((current) => {
+        const withoutDate = current.filter((day) => day.date !== dateKey);
+        return payload.day ? [...withoutDate, payload.day as CalendarDay] : withoutDate;
+      });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "休日設定の保存に失敗しました。");
+    } finally {
+      setCalendarLoading(false);
+    }
+  }
+
   async function postAction(path: string, body: unknown) {
     setLoading(true);
     setMessage("");
@@ -416,8 +506,21 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
           />
         )}
 
-        {activePanel === "recent" && (
-          <RecentPanel staffReady={staffReady} logs={data?.recentLogs ?? []} />
+        {activePanel === "calendar" && (
+          <CalendarPanel
+            staffReady={staffReady}
+            selectedMonth={selectedMonth || currentMonth}
+            calendarDays={calendarDays}
+            loading={calendarLoading}
+            groupStaff={groupStaff}
+            staffStatuses={data?.staffStatuses ?? []}
+            selectedStaffIds={selectedStaffIds}
+            isGroupMode={isGroupMode}
+            selectedStaff={selectedStaff}
+            onMonthChange={setSelectedMonth}
+            onSelectStaff={selectStaff}
+            onToggleDay={handleCalendarDayToggle}
+          />
         )}
 
         {activePanel === "monthly" && (
@@ -785,22 +888,163 @@ function StaffPill({
   );
 }
 
-function RecentPanel({ staffReady, logs }: { staffReady: boolean; logs: AttendanceLog[] }) {
+function CalendarPanel({
+  staffReady,
+  selectedMonth,
+  calendarDays,
+  loading,
+  groupStaff,
+  staffStatuses,
+  selectedStaffIds,
+  isGroupMode,
+  selectedStaff,
+  onMonthChange,
+  onSelectStaff,
+  onToggleDay,
+}: {
+  staffReady: boolean;
+  selectedMonth: string;
+  calendarDays: CalendarDay[];
+  loading: boolean;
+  groupStaff: GroupStaffConfig[] | null;
+  staffStatuses: GroupStaffStatus[];
+  selectedStaffIds: string[];
+  isGroupMode: boolean;
+  selectedStaff: GroupStaffConfig | null;
+  onMonthChange: (month: string) => void;
+  onSelectStaff: (staff: GroupStaffConfig) => void;
+  onToggleDay: (dateKey: string) => void;
+}) {
+  const holidayDates = useMemo(
+    () => new Set(calendarDays.filter((day) => day.day_type === "holiday").map((day) => day.date)),
+    [calendarDays],
+  );
+  const calendarCells = useMemo(() => buildCalendarCells(selectedMonth), [selectedMonth]);
+  const todayKey = getLocalDateKey(new Date());
+
   return (
     <div className="animate-fade-in">
-      <ScreenTitle icon="history" title="実績" subtitle="最近の打刻" />
-      {!staffReady ? (
-        <EmptyStaffNotice />
+      <header className="px-1 pt-2">
+        <h1 className="text-4xl font-black tracking-normal">カレンダー</h1>
+        <p className="mt-1 text-base font-bold text-slate-400 dark:text-slate-500">
+          休日とシフト
+        </p>
+      </header>
+
+      <MonthStepper
+        selectedMonth={selectedMonth}
+        disabled={loading}
+        onMonthChange={onMonthChange}
+      />
+
+      {isGroupMode && groupStaff && (
+        <CalendarStaffSelector
+          staffList={groupStaff}
+          staffStatuses={staffStatuses}
+          selectedStaffIds={selectedStaffIds}
+          loading={loading}
+          onSelect={onSelectStaff}
+        />
+      )}
+
+      {staffReady ? (
+        <GlassCard className="mt-5 p-4">
+          <div className="grid grid-cols-7 gap-2 text-center">
+            {["日", "月", "火", "水", "木", "金", "土"].map((weekday) => (
+              <div key={weekday} className="py-2 text-sm font-black text-[#64748B]">
+                {weekday}
+              </div>
+            ))}
+            {calendarCells.map((cell) => {
+              const isHoliday = holidayDates.has(cell.dateKey);
+              const isToday = cell.dateKey === todayKey;
+              return (
+                <button
+                  key={cell.dateKey}
+                  type="button"
+                  disabled={loading || !cell.inMonth}
+                  onClick={() => onToggleDay(cell.dateKey)}
+                  className={`min-h-16 rounded-2xl border p-1.5 text-center transition active:scale-95 disabled:cursor-default ${
+                    isHoliday
+                      ? "border-rose-100 bg-rose-50 text-rose-600"
+                      : "border-slate-100 bg-white text-[#0F172A]"
+                  } ${isToday ? "ring-2 ring-[#6366F1]" : ""} ${
+                    cell.inMonth ? "opacity-100" : "opacity-25"
+                  }`}
+                >
+                  <span className="block text-base font-black">{cell.day}</span>
+                  <span
+                    className={`mt-1 inline-grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-black ${
+                      isHoliday ? "bg-rose-100 text-rose-600" : "text-transparent"
+                    }`}
+                  >
+                    {isHoliday ? "休" : "・"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+            <p className="text-sm font-bold text-[#64748B]">
+              {selectedStaff ? `${selectedStaff.name} の休日設定` : "休日設定"}
+            </p>
+            <p className="text-sm font-black text-[#6366F1]">
+              休日 {holidayDates.size}日
+            </p>
+          </div>
+        </GlassCard>
       ) : (
-        <div className="mt-5 flex flex-col gap-3">
-          {logs.length ? (
-            logs.map((log) => <RecentLogCard key={log.id} log={log} />)
-          ) : (
-            <EmptyState message="表示できる打刻記録はまだありません。" />
-          )}
-        </div>
+        <GlassCard className="mt-5 p-6 text-center">
+          <p className="text-base font-bold text-slate-400">
+            カレンダーを表示するスタッフを選択してください。
+          </p>
+        </GlassCard>
       )}
     </div>
+  );
+}
+
+function CalendarStaffSelector({
+  staffList,
+  staffStatuses,
+  selectedStaffIds,
+  loading,
+  onSelect,
+}: {
+  staffList: GroupStaffConfig[];
+  staffStatuses: GroupStaffStatus[];
+  selectedStaffIds: string[];
+  loading: boolean;
+  onSelect: (staff: GroupStaffConfig) => void;
+}) {
+  return (
+    <GlassCard className="mt-5 p-4">
+      <p className="text-sm font-black text-[#64748B]">スタッフ</p>
+      <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+        {staffList.map((staff) => {
+          const status = staffStatuses.find((item) => item.id === staff.id);
+          const selected = selectedStaffIds[0] === staff.id;
+          return (
+            <button
+              key={staff.id}
+              type="button"
+              disabled={loading}
+              onClick={() => onSelect(staff)}
+              className={`min-h-12 shrink-0 rounded-2xl px-4 text-base font-black shadow-sm transition active:scale-95 disabled:opacity-50 ${
+                selected
+                  ? "bg-[#6366F1] text-white"
+                  : "bg-slate-50 text-[#64748B]"
+              }`}
+            >
+              {staff.name}
+              {status?.status === "working" && (
+                <span className="ml-2 text-xs font-black opacity-80">勤務中</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </GlassCard>
   );
 }
 
@@ -913,7 +1157,7 @@ function BottomNav({
 }) {
   const tabs: { id: ActivePanel; label: string; icon: IconName }[] = [
     { id: "home", label: "ホーム", icon: "home" },
-    { id: "recent", label: "実績", icon: "history" },
+    { id: "calendar", label: "カレンダー", icon: "calendar" },
     { id: "monthly", label: "月次", icon: "calendar" },
     { id: "pdf", label: "PDF", icon: "file" },
   ];
@@ -1016,20 +1260,6 @@ function ClockOutModal({
         </div>
       </form>
     </div>
-  );
-}
-
-function RecentLogCard({ log }: { log: AttendanceLog }) {
-  return (
-    <GlassCard className="p-5">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-2xl font-black">{formatShortDate(log.date)}</p>
-          <p className="mt-2 text-lg font-bold text-slate-500 dark:text-slate-400">{formatTimeRange(log)}</p>
-        </div>
-        <p className="text-2xl font-black tabular-nums">{formatDurationLong(log.work_minutes ?? 0)}</p>
-      </div>
-    </GlassCard>
   );
 }
 
@@ -1302,7 +1532,6 @@ type IconName =
   | "coffee"
   | "download"
   | "file"
-  | "history"
   | "home"
   | "play"
   | "refresh"
@@ -1381,13 +1610,6 @@ function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: str
         <svg {...common}>
           <path d="M7 3h8l4 4v17H7V3Z" />
           <path d="M15 3v5h5M10 13h6M10 17h6" />
-        </svg>
-      );
-    case "history":
-      return (
-        <svg {...common}>
-          <path d="M4 12a8 8 0 1 0 3-6" />
-          <path d="M4 4v6h6M12 8v5l3 2" />
         </svg>
       );
     case "home":
@@ -1536,4 +1758,31 @@ function shiftMonth(month: string, amount: number) {
   const nextYear = date.getFullYear();
   const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
   return `${nextYear}-${nextMonth}`;
+}
+
+function buildCalendarCells(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  if (!year || !monthNumber) return [];
+
+  const firstDate = new Date(year, monthNumber - 1, 1);
+  const startDate = new Date(firstDate);
+  startDate.setDate(firstDate.getDate() - firstDate.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+
+    return {
+      dateKey: getLocalDateKey(date),
+      day: date.getDate(),
+      inMonth: date.getMonth() === monthNumber - 1,
+    };
+  });
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
