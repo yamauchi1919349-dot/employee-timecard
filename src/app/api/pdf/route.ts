@@ -7,9 +7,8 @@ import {
   PDFPage,
   RGB,
   rgb,
-  StandardFonts,
 } from "pdf-lib";
-import * as fontkit from "@pdf-lib/fontkit";
+import fontkit from "@pdf-lib/fontkit";
 import { getMonthlyLogs } from "@/lib/attendance-service";
 import {
   calculatePdfMinutes,
@@ -54,6 +53,7 @@ export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const key = searchParams.get("k");
   const month = searchParams.get("month");
+  const staffId = searchParams.get("staffId");
 
   if (!key || !month) {
     return NextResponse.json(
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { member, logs } = await getMonthlyLogs({ key, month });
+    const { member, logs } = await getMonthlyLogs({ key, month, staffId });
     const pdfBytes = await buildMonthlyAttendancePdf(member.name, member.key, month, logs);
 
     return new NextResponse(Buffer.from(pdfBytes), {
@@ -98,7 +98,6 @@ async function buildMonthlyAttendancePdf(
   ]);
   const regularFont = await pdfDoc.embedFont(regularBytes, { subset: true });
   const boldFont = await pdfDoc.embedFont(boldBytes, { subset: true });
-  const latinFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const summary = summarizeMonthlyLogs(logs);
   let page = addPage(pdfDoc);
   let y = drawHeader(page, {
@@ -107,7 +106,6 @@ async function buildMonthlyAttendancePdf(
     month,
     regularFont,
     boldFont,
-    latinFont,
     summary,
   });
 
@@ -176,11 +174,10 @@ function drawHeader(
     month: string;
     regularFont: PDFFont;
     boldFont: PDFFont;
-    latinFont: PDFFont;
     summary: ReturnType<typeof summarizeMonthlyLogs>;
   },
 ) {
-  const { memberName, memberKey, month, regularFont, boldFont, latinFont, summary } =
+  const { memberName, memberKey, month, regularFont, boldFont, summary } =
     options;
 
   drawText(page, "タイムカード 月別記録", MARGIN, 548, {
@@ -189,7 +186,7 @@ function drawHeader(
     color: rgb(0.08, 0.1, 0.14),
   });
   drawText(page, `出力ID: ${memberKey}`, PAGE_WIDTH - MARGIN - 135, 552, {
-    font: latinFont,
+    font: regularFont,
     size: 8,
     color: rgb(0.45, 0.49, 0.55),
   });

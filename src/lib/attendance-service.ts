@@ -212,6 +212,7 @@ export async function clockOut(params: {
   key: string;
   clockIn?: string;
   clockOut?: string;
+  breakFlag?: boolean;
   staffId?: string | null;
 }) {
   const supabase = createSupabaseAdmin();
@@ -238,10 +239,12 @@ export async function clockOut(params: {
   const nextClockOut = params.clockOut
     ? parseJapaneseDatetimeLocal(params.clockOut)
     : actualClockOut;
+  const nextBreakFlag =
+    typeof params.breakFlag === "boolean" ? params.breakFlag : existing.break_flag;
   const workMinutes = calculateWorkMinutes(
     nextClockIn,
     nextClockOut,
-    existing.break_flag,
+    nextBreakFlag,
   );
   const revisionNote = buildRevisionNote(
     existing.clock_in,
@@ -255,6 +258,7 @@ export async function clockOut(params: {
     .update({
       clock_in: nextClockIn,
       clock_out: nextClockOut,
+      break_flag: nextBreakFlag,
       work_minutes: workMinutes,
       overtime_minutes: calculateOvertimeMinutes(workMinutes),
       note: appendNote(existing.note, revisionNote),
@@ -358,7 +362,12 @@ function resolveStaff(
   };
 }
 
-function applyStaffFilter<T extends { is: Function; eq: Function }>(
+function applyStaffFilter<
+  T extends {
+    is: (column: string, value: null) => T;
+    eq: (column: string, value: string) => T;
+  },
+>(
   query: T,
   staffId?: string | null,
 ) {

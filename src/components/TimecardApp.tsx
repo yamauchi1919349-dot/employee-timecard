@@ -11,6 +11,7 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/attendance";
 import {
+  AttendanceLog,
   AttendanceStatus,
   GroupStaffConfig,
   GroupStaffStatus,
@@ -23,6 +24,8 @@ type Props = {
   initialData: TimecardPayload | null;
   initialMessage?: string;
 };
+
+type ActivePanel = "today" | "recent" | "monthly";
 
 type MonthlySummary = {
   workedDays: number;
@@ -45,12 +48,17 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     initialData?.todayLog?.work_type ?? "normal",
   );
   const [breakFlag, setBreakFlag] = useState(initialData?.todayLog?.break_flag ?? true);
+  const [clockOutBreakFlag, setClockOutBreakFlag] = useState(
+    initialData?.todayLog?.break_flag ?? true,
+  );
   const [selectedMonth, setSelectedMonth] = useState(
     initialData?.businessDate.slice(0, 7) ?? "",
   );
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [monthlyLogs, setMonthlyLogs] = useState<AttendanceLog[]>([]);
   const [clockInEdit, setClockInEdit] = useState("");
   const [clockOutEdit, setClockOutEdit] = useState("");
+  const [activePanel, setActivePanel] = useState<ActivePanel>("today");
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,13 +83,13 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   const displayName = isGroupMode
     ? selectedStaff?.name ?? "スタッフを選択"
     : data?.member.name ?? "読み込み中";
-
-  const statusView = getStatusView(staffReady ? data?.status ?? "not_clocked_in" : "not_clocked_in");
+  const status = staffReady ? data?.status ?? "not_clocked_in" : "not_clocked_in";
+  const statusView = getStatusView(status);
   const todayWorkMinutes = useMemo(
     () => getTodayWorkMinutes(todayLog, staffReady ? data?.status : undefined, displayNow),
     [todayLog, staffReady, data?.status, displayNow],
   );
-  const todayBreakMinutes = todayLog?.break_flag ?? breakFlag ? BREAK_MINUTES : 0;
+  const todayBreakMinutes = (todayLog?.break_flag ?? breakFlag) ? BREAK_MINUTES : 0;
   const remainingMinutes = Math.max(0, BASIC_WORK_MINUTES - todayWorkMinutes);
   const targetReached = todayWorkMinutes >= BASIC_WORK_MINUTES;
   const monthOptions = useMemo(
@@ -95,14 +103,20 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
       ).filter(Boolean),
     [data?.availableMonths, data?.businessDate, selectedMonth],
   );
+  const pdfUrl = useMemo(() => {
+    if (!effectiveEmployeeKey || !selectedMonth || !staffReady) return "";
+    const params = new URLSearchParams({ k: effectiveEmployeeKey, month: selectedMonth });
+    if (isGroupMode && selectedStaff?.id) params.set("staffId", selectedStaff.id);
+    return `/api/pdf?${params.toString()}`;
+  }, [effectiveEmployeeKey, isGroupMode, selectedMonth, selectedStaff?.id, staffReady]);
 
   useEffect(() => {
     const mountTimer = window.setTimeout(() => {
       setMounted(true);
       setNow(new Date());
     }, 0);
-
     const timer = window.setInterval(() => setNow(new Date()), 1000);
+
     return () => {
       window.clearTimeout(mountTimer);
       window.clearInterval(timer);
@@ -140,18 +154,22 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     }
 
     if (!nextKey) {
-      setEffectiveEmployeeKey(null);
-      setData(null);
-      setMessage("Safariで社員専用URLを開いてからホーム画面に追加してください。");
-      setEmployeeKeyChecked(true);
+      queueMicrotask(() => {
+        setEffectiveEmployeeKey(null);
+        setData(null);
+        setMessage("社員専用URLから開いてください。");
+        setEmployeeKeyChecked(true);
+      });
       return;
     }
 
-    setEffectiveEmployeeKey(nextKey);
-    setEmployeeKeyChecked(true);
+    queueMicrotask(() => {
+      setEffectiveEmployeeKey(nextKey);
+      setEmployeeKeyChecked(true);
+    });
 
     if (!initialData || nextKey !== employeeKey) {
-      void fetchTimecardData(nextKey);
+      queueMicrotask(() => void fetchTimecardData(nextKey));
     }
   }, [employeeKey, fetchTimecardData, initialData]);
 
@@ -165,19 +183,21 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     const staffExists = data.groupStaff.some((staff) => staff.id === storedStaffId);
 
     if (storedStaffId && staffExists) {
-      setSelectedStaffIds([storedStaffId]);
-      void fetchTimecardData(effectiveEmployeeKey, storedStaffId);
+      queueMicrotask(() => setSelectedStaffIds([storedStaffId]));
+      queueMicrotask(() => void fetchTimecardData(effectiveEmployeeKey, storedStaffId));
     }
   }, [data?.groupStaff, effectiveEmployeeKey, fetchTimecardData, selectedStaffIds.length]);
 
   useEffect(() => {
     if (!effectiveEmployeeKey || !selectedMonth || !staffReady) {
-      setMonthlySummary(null);
+      queueMicrotask(() => {
+        setMonthlySummary(null);
+        setMonthlyLogs([]);
+      });
       return;
     }
 
     let ignore = false;
-    setSummaryLoading(true);
 
     const params = new URLSearchParams({
       k: effectiveEmployeeKey,
@@ -185,21 +205,37 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     });
     if (isGroupMode && selectedStaff?.id) params.set("staffId", selectedStaff.id);
 
-    fetch(`/api/monthly-summary?${params.toString()}`)
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.message);
-        if (!ignore) setMonthlySummary(payload);
-      })
-      .catch((error) => {
-        if (!ignore) {
-          setMonthlySummary(null);
-          setMessage(error instanceof Error ? error.message : "月間サマリーの取得に失敗しました。");
-        }
-      })
-      .finally(() => {
-        if (!ignore) setSummaryLoading(false);
-      });
+    queueMicrotask(() => {
+      setSummaryLoading(true);
+
+      Promise.all([
+        fetch(`/api/monthly-summary?${params.toString()}`).then(async (response) => {
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.message);
+          return payload as MonthlySummary;
+        }),
+        fetch(`/api/monthly-logs?${params.toString()}`).then(async (response) => {
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.message);
+          return payload.logs as AttendanceLog[];
+        }),
+      ])
+        .then(([summary, logs]) => {
+          if (ignore) return;
+          setMonthlySummary(summary);
+          setMonthlyLogs(logs);
+        })
+        .catch((error) => {
+          if (!ignore) {
+            setMonthlySummary(null);
+            setMonthlyLogs([]);
+            setMessage(error instanceof Error ? error.message : "月次データの取得に失敗しました。");
+          }
+        })
+        .finally(() => {
+          if (!ignore) setSummaryLoading(false);
+        });
+    });
 
     return () => {
       ignore = true;
@@ -215,6 +251,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     setData(payload);
     setWorkType(payload.todayLog?.work_type ?? "normal");
     setBreakFlag(payload.todayLog?.break_flag ?? true);
+    setClockOutBreakFlag(payload.todayLog?.break_flag ?? true);
     setSelectedMonth((current) => current || payload.businessDate.slice(0, 7));
     if (payload.selectedStaff?.id) {
       setSelectedStaffIds((current) =>
@@ -284,6 +321,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
     const currentOut = new Date().toISOString();
     setClockInEdit(toDatetimeLocalValue(data.todayLog.clock_in));
     setClockOutEdit(toDatetimeLocalValue(currentOut));
+    setClockOutBreakFlag(data.todayLog.break_flag);
     setShowModal(true);
   }
 
@@ -294,6 +332,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
       staffId: isGroupMode ? selectedStaff?.id : undefined,
       clockIn: clockInEdit,
       clockOut: clockOutEdit,
+      breakFlag: clockOutBreakFlag,
     });
     setShowModal(false);
   }
@@ -339,7 +378,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
           <p className="text-sm font-semibold text-blue-600">タイムカード</p>
           <h1 className="mt-3 text-2xl font-bold text-slate-950">社員キーが必要です</h1>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            Safariで社員専用URLを開いてからホーム画面に追加してください。
+            社員専用URLから開くか、URLに社員キーを指定してください。
           </p>
           {message && (
             <p className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
@@ -354,331 +393,551 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   return (
     <main className="min-h-screen bg-[#f5f7fb] px-4 pb-8 pt-5 text-slate-950">
       <div className="mx-auto flex w-full max-w-md flex-col gap-5">
-        <header className="animate-fade-in px-1 pt-2">
-          <p className="text-lg font-bold text-slate-950">おはようございます ☀️</p>
-          <h1 className="mt-1 text-3xl font-black tracking-normal">
-            {isGroupMode && !selectedStaff ? displayName : `${displayName}さん`}
-          </h1>
-          <p className="mt-4 text-sm font-bold text-slate-500">本日の勤務状況</p>
-          <div className="mt-2 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-6xl font-black leading-none tracking-normal tabular-nums">
-                {displayNow
-                  ? displayNow.toLocaleTimeString("ja-JP", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : "--:--"}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-slate-500">
-                {displayNow ? formatDateLine(displayNow) : "----/--/--"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={loadData}
-              disabled={loading || (isGroupMode && !selectedStaff)}
-              className="h-12 w-12 shrink-0 rounded-full bg-white text-lg font-black text-slate-700 shadow-sm transition active:scale-95 disabled:opacity-50"
-              aria-label="更新"
-            >
-              {loading ? <Spinner compact /> : "↻"}
-            </button>
-          </div>
-        </header>
+        <TimeHeader
+          displayName={displayName}
+          displayNow={displayNow}
+          isGroupMode={isGroupMode}
+          selectedStaff={selectedStaff}
+          loading={loading}
+          onRefresh={loadData}
+        />
+
+        <ClockPanel
+          status={status}
+          statusView={statusView}
+          staffReady={staffReady}
+          canClockIn={canClockIn}
+          canClockOut={canClockOut}
+          loading={loading}
+          workType={workType}
+          breakFlag={breakFlag}
+          todayLog={todayLog}
+          todayWorkMinutes={todayWorkMinutes}
+          targetReached={targetReached}
+          onWorkTypeChange={setWorkType}
+          onBreakFlagChange={setBreakFlag}
+          onClockIn={handleClockIn}
+          onClockOut={openClockOutModal}
+        />
 
         {isGroupMode && groupStaff && (
-          <section className="app-card animate-fade-in p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-black">スタッフ選択</h2>
-              <span className="text-xs font-bold text-slate-400">
-                {selectedStaffIds.length}名選択中
-              </span>
-            </div>
-            <div className="mt-4 grid gap-3">
-              {groupStaff.map((staff) => {
-                const status =
-                  data?.staffStatuses.find((item) => item.id === staff.id) ?? {
-                    ...staff,
-                    status: "not_clocked_in" as AttendanceStatus,
-                    clockIn: null,
-                    clockOut: null,
-                  };
-                return (
-                  <StaffCard
-                    key={staff.id}
-                    staff={status}
-                    selected={selectedStaffIds.includes(staff.id)}
-                    onSelect={() => void selectStaff(staff)}
-                    onClockOut={() => void handleSingleStaffClockOut(staff.id)}
-                    disabled={loading}
-                  />
-                );
-              })}
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={loading || selectedStaffIds.length === 0}
-                onClick={handleBulkClockIn}
-                className="h-12 rounded-full bg-blue-600 text-sm font-black text-white shadow-md shadow-blue-100 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
-              >
-                選択したスタッフを出勤
-              </button>
-              <button
-                type="button"
-                disabled={loading || selectedStaffIds.length === 0}
-                onClick={handleBulkClockOut}
-                className="h-12 rounded-full bg-red-500 text-sm font-black text-white shadow-md shadow-red-100 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
-              >
-                選択したスタッフを退勤
-              </button>
-            </div>
-          </section>
+          <GroupStaffPanel
+            staffList={groupStaff}
+            staffStatuses={data?.staffStatuses ?? []}
+            selectedStaffIds={selectedStaffIds}
+            loading={loading}
+            onSelect={selectStaff}
+            onBulkClockIn={handleBulkClockIn}
+            onBulkClockOut={handleBulkClockOut}
+            onSingleClockOut={handleSingleStaffClockOut}
+          />
         )}
 
-        <section className={`app-card animate-fade-in p-6 ${statusView.ring}`}>
-          <div className="flex items-center justify-between gap-3">
-            <span className={`rounded-full px-4 py-2 text-sm font-black ${statusView.badge}`}>
-              {staffReady ? statusView.label : "スタッフ未選択"}
-            </span>
-            {targetReached && (
-              <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
-                目標達成！
-              </span>
-            )}
-          </div>
+        {message && (
+          <p className="rounded-2xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
+            {message}
+          </p>
+        )}
 
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <Metric label="出勤" value={formatTime(todayLog?.clock_in ?? null)} />
-            <Metric
-              label={data?.status === "clocked_out" ? "勤務時間" : "経過時間"}
-              value={formatMinutes(todayWorkMinutes)}
-            />
-          </div>
+        <PanelTabs activePanel={activePanel} onChange={setActivePanel} />
 
-          <div className={`mt-5 rounded-3xl px-5 py-4 ${statusView.panel}`}>
-            <p className="text-sm font-bold opacity-80">現在の状態</p>
-            <p className="mt-1 text-3xl font-black tracking-normal">
-              {staffReady ? statusView.label : "スタッフを選択"}
-            </p>
-          </div>
-        </section>
+        {activePanel === "today" && (
+          <TodayPanel
+            staffReady={staffReady}
+            status={data?.status}
+            todayWorkMinutes={todayWorkMinutes}
+            todayBreakMinutes={todayBreakMinutes}
+            remainingMinutes={remainingMinutes}
+          />
+        )}
 
-        <section className="app-card animate-fade-in p-5">
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
-              勤務区分
-              <select
-                value={workType}
-                disabled={!canClockIn}
-                onChange={(event) => setWorkType(event.target.value as WorkType)}
-                className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base font-bold outline-none transition focus:border-blue-400 disabled:text-slate-400"
-              >
-                <option value="normal">通常勤務</option>
-                <option value="kitchen_car">キッチンカー</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
-              休憩
-              <button
-                type="button"
-                disabled={!canClockIn}
-                onClick={() => setBreakFlag((current) => !current)}
-                className={`h-12 rounded-2xl px-4 text-base font-black transition active:scale-95 disabled:opacity-60 ${
-                  breakFlag ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500"
-                }`}
-              >
-                {breakFlag ? "1:00 あり" : "なし"}
-              </button>
-            </label>
-          </div>
+        {activePanel === "recent" && (
+          <RecentLogsPanel staffReady={staffReady} logs={data?.recentLogs ?? []} />
+        )}
 
-          <button
-            type="button"
-            disabled={loading || !staffReady || (!canClockIn && !canClockOut)}
-            onClick={canClockIn ? handleClockIn : openClockOutModal}
-            className={`mt-5 flex h-[68px] w-full items-center justify-center rounded-full text-xl font-black text-white shadow-lg transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none ${statusView.action}`}
-          >
-            {loading ? (
-              <Spinner light />
-            ) : !staffReady ? (
-              "スタッフを選択"
-            ) : canClockIn ? (
-              "▶ 出勤"
-            ) : canClockOut ? (
-              "■ 退勤"
-            ) : (
-              "✓ 本日は完了"
-            )}
-          </button>
-
-          {message && (
-            <p className="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
-              {message}
-            </p>
-          )}
-        </section>
-
-        <section className="app-card animate-fade-in p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-black">本日の実績</h2>
-            {staffReady && data?.status === "clocked_out" && (
-              <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-600">
-                本日もお疲れ様でした 🎉
-              </span>
-            )}
-          </div>
-          {staffReady ? (
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <StatCard label="勤務時間" value={formatMinutes(todayWorkMinutes)} />
-              <StatCard label="休憩" value={formatMinutes(todayBreakMinutes)} />
-              <StatCard label="残り" value={formatMinutes(remainingMinutes)} />
-            </div>
-          ) : (
-            <EmptyStaffNotice />
-          )}
-        </section>
-
-        <section className="app-card animate-fade-in p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-black">今月の勤務</h2>
-              <p className="mt-1 text-xs font-bold text-slate-400">
-                {selectedMonth || currentMonth}
-              </p>
-            </div>
-            <select
-              value={selectedMonth}
-              disabled={!staffReady}
-              onChange={(event) => setSelectedMonth(event.target.value)}
-              className="h-10 rounded-full border border-slate-200 bg-slate-50 px-3 text-sm font-black outline-none disabled:text-slate-400"
-            >
-              {monthOptions.map((month) => (
-                <option key={month} value={month}>
-                  {month}
-                </option>
-              ))}
-            </select>
-          </div>
-          {staffReady ? (
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              <StatCard
-                label="勤務日数"
-                value={summaryLoading ? "..." : `${monthlySummary?.workedDays ?? 0}日`}
-                accent="blue"
-              />
-              <StatCard
-                label="総勤務時間"
-                value={
-                  summaryLoading
-                    ? "..."
-                    : formatHourLabel(monthlySummary?.totalWorkMinutes ?? 0)
-                }
-                accent="slate"
-              />
-              <StatCard
-                label="残業"
-                value={
-                  summaryLoading ? "..." : formatHourLabel(monthlySummary?.overtimeMinutes ?? 0)
-                }
-                accent="rose"
-              />
-            </div>
-          ) : (
-            <EmptyStaffNotice />
-          )}
-        </section>
-
-        <section className="app-card animate-fade-in p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-black">最近の記録</h2>
-            <span className="text-xs font-bold text-slate-400">直近3日</span>
-          </div>
-          {!staffReady ? (
-            <EmptyStaffNotice />
-          ) : (
-            <div className="mt-4 flex flex-col gap-3">
-              {data?.recentLogs.length ? (
-                data.recentLogs.map((log) => (
-                  <article key={log.id} className="rounded-3xl bg-slate-50 p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-black">{log.date}</p>
-                      <p className="text-xs font-bold text-slate-500">
-                        {getWorkTypeLabel(log.work_type)} /{" "}
-                        {log.break_flag ? "休憩あり" : "休憩なし"}
-                      </p>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-600">
-                      <p>出勤 {formatLocalDateTime(log.clock_in)}</p>
-                      <p>退勤 {formatLocalDateTime(log.clock_out)}</p>
-                      <p>勤務 {formatMinutes(log.work_minutes)}</p>
-                      <p>残業 {formatMinutes(log.overtime_minutes)}</p>
-                    </div>
-                    {log.note && <p className="mt-3 text-sm text-slate-500">{log.note}</p>}
-                  </article>
-                ))
-              ) : (
-                <p className="rounded-3xl bg-slate-50 p-4 text-sm font-bold text-slate-500">
-                  表示できる打刻記録はまだありません。
-                </p>
-              )}
-            </div>
-          )}
-        </section>
+        {activePanel === "monthly" && (
+          <MonthlyPanel
+            staffReady={staffReady}
+            selectedMonth={selectedMonth || currentMonth}
+            monthOptions={monthOptions}
+            summary={monthlySummary}
+            logs={monthlyLogs}
+            loading={summaryLoading}
+            pdfUrl={pdfUrl}
+            onMonthChange={setSelectedMonth}
+          />
+        )}
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 z-10 flex items-end bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
-          <form
-            onSubmit={handleClockOut}
-            className="mx-auto w-full max-w-md animate-slide-up rounded-[28px] bg-white p-5 shadow-2xl"
-          >
-            <h2 className="text-xl font-black">退勤前の確認</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              必要な場合だけ時刻を修正してください。修正内容は履歴に残ります。
-            </p>
-            <div className="mt-5 grid gap-3">
-              <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
-                出勤時刻
-                <input
-                  type="datetime-local"
-                  value={clockInEdit}
-                  onChange={(event) => setClockInEdit(event.target.value)}
-                  className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-blue-400"
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
-                退勤時刻
-                <input
-                  type="datetime-local"
-                  value={clockOutEdit}
-                  onChange={(event) => setClockOutEdit(event.target.value)}
-                  className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-blue-400"
-                  required
-                />
-              </label>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="h-13 rounded-full border border-slate-200 font-black text-slate-700 transition active:scale-95"
-              >
-                キャンセル
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="h-13 rounded-full bg-red-500 font-black text-white shadow-lg transition active:scale-95 disabled:bg-slate-300"
-              >
-                退勤する
-              </button>
-            </div>
-          </form>
-        </div>
+        <ClockOutModal
+          loading={loading}
+          clockInEdit={clockInEdit}
+          clockOutEdit={clockOutEdit}
+          breakFlag={clockOutBreakFlag}
+          onClockInEditChange={setClockInEdit}
+          onClockOutEditChange={setClockOutEdit}
+          onBreakFlagChange={setClockOutBreakFlag}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleClockOut}
+        />
       )}
     </main>
+  );
+}
+
+function TimeHeader({
+  displayName,
+  displayNow,
+  isGroupMode,
+  selectedStaff,
+  loading,
+  onRefresh,
+}: {
+  displayName: string;
+  displayNow: Date | null;
+  isGroupMode: boolean;
+  selectedStaff: GroupStaffConfig | null;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <header className="animate-fade-in px-1 pt-2">
+      <p className="text-sm font-bold text-slate-500">タイムカード</p>
+      <h1 className="mt-1 text-3xl font-black tracking-normal">
+        {isGroupMode && !selectedStaff ? displayName : `${displayName}さん`}
+      </h1>
+      <div className="mt-4 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-6xl font-black leading-none tracking-normal tabular-nums">
+            {displayNow
+              ? displayNow.toLocaleTimeString("ja-JP", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "--:--"}
+          </p>
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            {displayNow ? formatDateLine(displayNow) : "----/--/--"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading || (isGroupMode && !selectedStaff)}
+          className="h-12 w-12 shrink-0 rounded-full bg-white text-lg font-black text-slate-700 shadow-sm transition active:scale-95 disabled:opacity-50"
+          aria-label="更新"
+        >
+          {loading ? <Spinner compact /> : "↻"}
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function ClockPanel({
+  status,
+  statusView,
+  staffReady,
+  canClockIn,
+  canClockOut,
+  loading,
+  workType,
+  breakFlag,
+  todayLog,
+  todayWorkMinutes,
+  targetReached,
+  onWorkTypeChange,
+  onBreakFlagChange,
+  onClockIn,
+  onClockOut,
+}: {
+  status: AttendanceStatus;
+  statusView: StatusView;
+  staffReady: boolean;
+  canClockIn: boolean;
+  canClockOut: boolean;
+  loading: boolean;
+  workType: WorkType;
+  breakFlag: boolean;
+  todayLog: AttendanceLog | null;
+  todayWorkMinutes: number;
+  targetReached: boolean;
+  onWorkTypeChange: (workType: WorkType) => void;
+  onBreakFlagChange: (breakFlag: boolean) => void;
+  onClockIn: () => void;
+  onClockOut: () => void;
+}) {
+  return (
+    <section className={`app-card animate-fade-in p-5 ${statusView.ring}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className={`rounded-full px-4 py-2 text-sm font-black ${statusView.badge}`}>
+          {staffReady ? statusView.label : "スタッフ未選択"}
+        </span>
+        {targetReached && (
+          <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+            8時間到達
+          </span>
+        )}
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <Metric label="出勤" value={formatTime(todayLog?.clock_in ?? null)} />
+        <Metric
+          label={status === "clocked_out" ? "勤務時間" : "経過時間"}
+          value={formatMinutes(todayWorkMinutes)}
+        />
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
+          勤務区分
+          <select
+            value={workType}
+            disabled={!canClockIn}
+            onChange={(event) => onWorkTypeChange(event.target.value as WorkType)}
+            className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base font-bold outline-none transition focus:border-blue-400 disabled:text-slate-400"
+          >
+            <option value="normal">通常勤務</option>
+            <option value="kitchen_car">キッチンカー</option>
+          </select>
+        </label>
+        <BreakToggle
+          label="休憩"
+          value={breakFlag}
+          disabled={!canClockIn}
+          onChange={onBreakFlagChange}
+        />
+      </div>
+
+      <button
+        type="button"
+        disabled={loading || !staffReady || (!canClockIn && !canClockOut)}
+        onClick={canClockIn ? onClockIn : onClockOut}
+        className={`mt-5 flex h-[68px] w-full items-center justify-center rounded-full text-xl font-black text-white shadow-lg transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none ${statusView.action}`}
+      >
+        {loading ? <Spinner light /> : getActionLabel(staffReady, canClockIn, canClockOut)}
+      </button>
+    </section>
+  );
+}
+
+function GroupStaffPanel({
+  staffList,
+  staffStatuses,
+  selectedStaffIds,
+  loading,
+  onSelect,
+  onBulkClockIn,
+  onBulkClockOut,
+  onSingleClockOut,
+}: {
+  staffList: GroupStaffConfig[];
+  staffStatuses: GroupStaffStatus[];
+  selectedStaffIds: string[];
+  loading: boolean;
+  onSelect: (staff: GroupStaffConfig) => void;
+  onBulkClockIn: () => void;
+  onBulkClockOut: () => void;
+  onSingleClockOut: (staffId: string) => void;
+}) {
+  return (
+    <section className="app-card animate-fade-in p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-black">スタッフ選択</h2>
+        <span className="text-xs font-bold text-slate-400">
+          {selectedStaffIds.length}名選択中
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3">
+        {staffList.map((staff) => {
+          const status =
+            staffStatuses.find((item) => item.id === staff.id) ?? {
+              ...staff,
+              status: "not_clocked_in" as AttendanceStatus,
+              clockIn: null,
+              clockOut: null,
+            };
+
+          return (
+            <StaffCard
+              key={staff.id}
+              staff={status}
+              selected={selectedStaffIds.includes(staff.id)}
+              onSelect={() => onSelect(staff)}
+              onClockOut={() => onSingleClockOut(staff.id)}
+              disabled={loading}
+            />
+          );
+        })}
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          disabled={loading || selectedStaffIds.length === 0}
+          onClick={onBulkClockIn}
+          className="h-12 rounded-full bg-blue-600 text-sm font-black text-white shadow-md shadow-blue-100 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
+        >
+          選択を出勤
+        </button>
+        <button
+          type="button"
+          disabled={loading || selectedStaffIds.length === 0}
+          onClick={onBulkClockOut}
+          className="h-12 rounded-full bg-red-500 text-sm font-black text-white shadow-md shadow-red-100 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
+        >
+          選択を退勤
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PanelTabs({
+  activePanel,
+  onChange,
+}: {
+  activePanel: ActivePanel;
+  onChange: (panel: ActivePanel) => void;
+}) {
+  const tabs: { id: ActivePanel; label: string }[] = [
+    { id: "today", label: "本日" },
+    { id: "recent", label: "最近" },
+    { id: "monthly", label: "月次" },
+  ];
+
+  return (
+    <nav className="sticky top-0 z-[1] -mx-1 flex gap-2 overflow-x-auto bg-[#f5f7fb]/95 px-1 py-2 backdrop-blur">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={`h-11 min-w-24 rounded-full px-5 text-sm font-black transition ${
+            activePanel === tab.id
+              ? "bg-slate-950 text-white shadow-md shadow-slate-200"
+              : "bg-white text-slate-600"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function TodayPanel({
+  staffReady,
+  status,
+  todayWorkMinutes,
+  todayBreakMinutes,
+  remainingMinutes,
+}: {
+  staffReady: boolean;
+  status: AttendanceStatus | undefined;
+  todayWorkMinutes: number;
+  todayBreakMinutes: number;
+  remainingMinutes: number;
+}) {
+  return (
+    <section className="app-card animate-fade-in p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-black">本日の実績</h2>
+        {staffReady && status === "clocked_out" && (
+          <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-600">
+            完了
+          </span>
+        )}
+      </div>
+      {staffReady ? (
+        <div className="mt-4 grid grid-cols-3 gap-3">
+          <StatCard label="勤務" value={formatMinutes(todayWorkMinutes)} />
+          <StatCard label="休憩" value={formatMinutes(todayBreakMinutes)} />
+          <StatCard label="残り" value={formatMinutes(remainingMinutes)} />
+        </div>
+      ) : (
+        <EmptyStaffNotice />
+      )}
+    </section>
+  );
+}
+
+function RecentLogsPanel({
+  staffReady,
+  logs,
+}: {
+  staffReady: boolean;
+  logs: AttendanceLog[];
+}) {
+  return (
+    <section className="app-card animate-fade-in p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-black">最近の実績</h2>
+        <span className="text-xs font-bold text-slate-400">直近3日</span>
+      </div>
+      {!staffReady ? (
+        <EmptyStaffNotice />
+      ) : (
+        <LogList logs={logs} emptyMessage="表示できる打刻記録はまだありません。" />
+      )}
+    </section>
+  );
+}
+
+function MonthlyPanel({
+  staffReady,
+  selectedMonth,
+  monthOptions,
+  summary,
+  logs,
+  loading,
+  pdfUrl,
+  onMonthChange,
+}: {
+  staffReady: boolean;
+  selectedMonth: string;
+  monthOptions: string[];
+  summary: MonthlySummary | null;
+  logs: AttendanceLog[];
+  loading: boolean;
+  pdfUrl: string;
+  onMonthChange: (month: string) => void;
+}) {
+  return (
+    <section className="app-card animate-fade-in p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-black">ひと月分の打刻記録</h2>
+          <p className="mt-1 text-xs font-bold text-slate-400">{selectedMonth}</p>
+        </div>
+        <div className="flex gap-2">
+          <select
+            value={selectedMonth}
+            disabled={!staffReady}
+            onChange={(event) => onMonthChange(event.target.value)}
+            className="h-10 rounded-full border border-slate-200 bg-slate-50 px-3 text-sm font-black outline-none disabled:text-slate-400"
+          >
+            {monthOptions.map((month) => (
+              <option key={month} value={month}>
+                {month}
+              </option>
+            ))}
+          </select>
+          <a
+            href={pdfUrl || undefined}
+            aria-disabled={!pdfUrl}
+            className={`grid h-10 place-items-center rounded-full px-4 text-sm font-black transition ${
+              pdfUrl
+                ? "bg-slate-950 text-white active:scale-95"
+                : "pointer-events-none bg-slate-200 text-slate-400"
+            }`}
+          >
+            PDF
+          </a>
+        </div>
+      </div>
+
+      {staffReady ? (
+        <>
+          <div className="mt-4 grid grid-cols-3 gap-3">
+            <StatCard
+              label="勤務日数"
+              value={loading ? "..." : `${summary?.workedDays ?? 0}日`}
+              accent="blue"
+            />
+            <StatCard
+              label="総勤務"
+              value={loading ? "..." : formatHourLabel(summary?.totalWorkMinutes ?? 0)}
+            />
+            <StatCard
+              label="残業"
+              value={loading ? "..." : formatHourLabel(summary?.overtimeMinutes ?? 0)}
+              accent="rose"
+            />
+          </div>
+          <div className="mt-4 max-h-[420px] overflow-y-auto pr-1">
+            <LogList logs={logs} emptyMessage="この月の打刻記録はありません。" />
+          </div>
+        </>
+      ) : (
+        <EmptyStaffNotice />
+      )}
+    </section>
+  );
+}
+
+function ClockOutModal({
+  loading,
+  clockInEdit,
+  clockOutEdit,
+  breakFlag,
+  onClockInEditChange,
+  onClockOutEditChange,
+  onBreakFlagChange,
+  onClose,
+  onSubmit,
+}: {
+  loading: boolean;
+  clockInEdit: string;
+  clockOutEdit: string;
+  breakFlag: boolean;
+  onClockInEditChange: (value: string) => void;
+  onClockOutEditChange: (value: string) => void;
+  onBreakFlagChange: (value: boolean) => void;
+  onClose: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-10 flex items-end bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
+      <form
+        onSubmit={onSubmit}
+        className="mx-auto w-full max-w-md animate-slide-up rounded-[28px] bg-white p-5 shadow-2xl"
+      >
+        <h2 className="text-xl font-black">退勤前の確認</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          必要な場合は時刻と休憩設定を修正してください。保存後に勤務時間へ反映されます。
+        </p>
+        <div className="mt-5 grid gap-3">
+          <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
+            出勤時刻
+            <input
+              type="datetime-local"
+              value={clockInEdit}
+              onChange={(event) => onClockInEditChange(event.target.value)}
+              className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-blue-400"
+              required
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
+            退勤時刻
+            <input
+              type="datetime-local"
+              value={clockOutEdit}
+              onChange={(event) => onClockOutEditChange(event.target.value)}
+              className="h-12 rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base outline-none focus:border-blue-400"
+              required
+            />
+          </label>
+          <BreakToggle label="休憩" value={breakFlag} onChange={onBreakFlagChange} />
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-13 rounded-full border border-slate-200 font-black text-slate-700 transition active:scale-95"
+          >
+            キャンセル
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="h-13 rounded-full bg-red-500 font-black text-white shadow-lg transition active:scale-95 disabled:bg-slate-300"
+          >
+            退勤する
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -756,6 +1015,66 @@ function StaffCard({
   );
 }
 
+function LogList({ logs, emptyMessage }: { logs: AttendanceLog[]; emptyMessage: string }) {
+  if (!logs.length) {
+    return (
+      <p className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm font-bold text-slate-500">
+        {emptyMessage}
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-3">
+      {logs.map((log) => (
+        <article key={log.id} className="rounded-3xl bg-slate-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-black">{log.date}</p>
+            <p className="text-xs font-bold text-slate-500">
+              {getWorkTypeLabel(log.work_type)} / {log.break_flag ? "休憩あり" : "休憩なし"}
+            </p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-600">
+            <p>出勤 {formatLocalDateTime(log.clock_in)}</p>
+            <p>退勤 {formatLocalDateTime(log.clock_out)}</p>
+            <p>勤務 {formatMinutes(log.work_minutes)}</p>
+            <p>残業 {formatMinutes(log.overtime_minutes)}</p>
+          </div>
+          {log.note && <p className="mt-3 text-sm text-slate-500">{log.note}</p>}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function BreakToggle({
+  label,
+  value,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  disabled?: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-2 text-sm font-black text-slate-700">
+      {label}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onChange(!value)}
+        className={`h-12 rounded-2xl px-4 text-base font-black transition active:scale-95 disabled:opacity-60 ${
+          value ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500"
+        }`}
+      >
+        {value ? "1:00 あり" : "なし"}
+      </button>
+    </label>
+  );
+}
+
 function EmptyStaffNotice() {
   return (
     <p className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm font-bold text-slate-500">
@@ -809,6 +1128,8 @@ function Spinner({ light = false, compact = false }: { light?: boolean; compact?
   );
 }
 
+type StatusView = ReturnType<typeof getStatusView>;
+
 function getStatusView(status: AttendanceStatus) {
   const views = {
     not_clocked_in: {
@@ -826,7 +1147,7 @@ function getStatusView(status: AttendanceStatus) {
       action: "bg-red-500 shadow-red-200",
     },
     clocked_out: {
-      label: "退勤済",
+      label: "退勤済み",
       badge: "bg-emerald-100 text-emerald-700",
       panel: "bg-emerald-600 text-white",
       ring: "ring-2 ring-emerald-100",
@@ -835,6 +1156,13 @@ function getStatusView(status: AttendanceStatus) {
   } satisfies Record<AttendanceStatus, Record<string, string>>;
 
   return views[status];
+}
+
+function getActionLabel(staffReady: boolean, canClockIn: boolean, canClockOut: boolean) {
+  if (!staffReady) return "スタッフを選択";
+  if (canClockIn) return "出勤";
+  if (canClockOut) return "退勤";
+  return "本日は完了";
 }
 
 function getTodayWorkMinutes(

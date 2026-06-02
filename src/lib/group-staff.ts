@@ -1,15 +1,7 @@
-import { GroupStaffConfig } from "./types";
-
-export const groupStaffConfigs: Record<string, GroupStaffConfig[]> = {
-  pato: [
-    { id: "P001", name: "田中" },
-    { id: "P002", name: "佐藤" },
-    { id: "P003", name: "鈴木" },
-  ],
-};
+import { getMemberRuntimeConfig } from "./tenant-config";
 
 export function getGroupStaffConfigs(employeeKey: string) {
-  return groupStaffConfigs[employeeKey] ?? null;
+  return getMemberRuntimeConfig(employeeKey)?.groupStaff ?? null;
 }
 
 export function getGroupStaffConfig(employeeKey: string, staffId?: string | null) {

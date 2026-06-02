@@ -8,6 +8,7 @@ export async function POST(request: Request) {
       key?: string;
       clockIn?: string;
       clockOut?: string;
+      breakFlag?: boolean;
       staffId?: string;
       staffIds?: string[];
     };
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
         const current = await getTimecardData(key, { staffId });
         if (!current || current.status !== "working") continue;
 
-        await clockOut({ key, staffId });
+        await clockOut({ key, staffId, breakFlag: body.breakFlag });
         clockedOutNames.push(current.selectedStaff?.name ?? staffId);
       }
 
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
       key,
       clockIn: body.clockIn,
       clockOut: body.clockOut,
+      breakFlag: body.breakFlag,
       staffId: body.staffId,
     });
 
