@@ -354,7 +354,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   if (!employeeKeyChecked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-6 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 dark:text-white">
+      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-slate-950">
         <GlassCard className="w-full max-w-md p-8 text-center">
           <Spinner />
           <h1 className="mt-5 text-2xl font-black">勤怠</h1>
@@ -368,7 +368,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   if (!effectiveEmployeeKey) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-6 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 dark:text-white">
+      <main className="flex min-h-screen items-center justify-center bg-white px-6 text-slate-950">
         <GlassCard className="w-full max-w-md p-8">
           <p className="text-sm font-bold text-blue-500">Timecard</p>
           <h1 className="mt-3 text-3xl font-black">社員キーが必要です</h1>
@@ -382,8 +382,8 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-4 pb-28 pt-5 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 dark:text-white">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-5">
+    <main className="min-h-screen bg-white px-5 pb-32 pt-7 text-slate-950">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-6">
         {activePanel === "home" && (
           <HomePanel
             displayName={displayName}
@@ -523,16 +523,16 @@ function HomePanel({
 
   return (
     <div className="animate-fade-in">
-      <header className="px-1 pt-2">
-        <div className="flex items-start justify-between gap-4">
+      <header className="relative px-1 pt-5 text-center">
+        <div>
           <div>
-            <p className="text-base font-bold text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-bold text-slate-400">
               {isGroupMode && !selectedStaff ? "スタッフ選択待ち" : displayName}
             </p>
-            <p className="mt-4 text-7xl font-black leading-none tracking-normal tabular-nums">
+            <p className="mt-5 text-[64px] font-black leading-none tracking-normal text-[#111827] tabular-nums">
               {displayNow ? formatClockTime(displayNow) : "--:--"}
             </p>
-            <p className="mt-3 text-lg font-bold text-slate-500 dark:text-slate-400">
+            <p className="mt-3 text-xl font-black text-[#6B7280]">
               {displayNow ? formatDateLine(displayNow) : "----年--月--日"}
             </p>
           </div>
@@ -540,7 +540,7 @@ function HomePanel({
             type="button"
             onClick={onRefresh}
             disabled={loading || (isGroupMode && !selectedStaff)}
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/70 text-slate-700 shadow-sm ring-1 ring-white/70 backdrop-blur-xl transition hover:scale-105 active:scale-95 disabled:opacity-40 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10"
+            className="absolute right-0 top-0 grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[#6366F1] shadow-sm ring-1 ring-slate-100 transition hover:scale-105 active:scale-95 disabled:opacity-40"
             aria-label="更新"
           >
             {loading ? <Spinner compact /> : <Icon name="refresh" className="h-5 w-5" />}
@@ -548,31 +548,31 @@ function HomePanel({
         </div>
       </header>
 
-      <GlassCard className={`mt-5 p-6 ${statusView.statusCard}`}>
+      <GlassCard className={`mt-8 p-6 ${statusView.statusCard}`}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className={`flex items-center gap-3 text-3xl font-black ${statusView.text}`}>
-              <span className={`h-4 w-4 rounded-full ${statusView.dot} ${status === "working" ? "animate-pulse" : ""}`} />
+            <p className={`flex items-center gap-4 text-3xl font-black ${statusView.text}`}>
+              <span className={`h-3.5 w-3.5 rounded-full ${statusView.dot} ${status === "working" ? "animate-pulse" : ""}`} />
               {staffReady ? statusView.label : "スタッフ未選択"}
             </p>
-            <p className="mt-4 text-xl font-black text-slate-700 dark:text-slate-200">
+            <p className="mt-6 text-xl font-black text-[#111827]">
               {todayLog?.clock_in ? `出勤 ${formatTime(todayLog.clock_in)}` : "まだ出勤していません"}
             </p>
           </div>
-          <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-3xl ${statusView.iconBg}`}>
+          <span className={`grid h-16 w-16 shrink-0 place-items-center rounded-full ${statusView.iconBg}`}>
             <Icon name="clock" className="h-7 w-7" />
           </span>
         </div>
       </GlassCard>
 
-      <GlassCard className="mt-5 p-6">
+      <GlassCard className="p-6">
         <div className="flex items-center justify-between gap-5">
           <div className="min-w-0">
-            <p className="text-base font-black text-slate-500 dark:text-slate-400">本日の勤務時間</p>
-            <p className="mt-3 text-4xl font-black tracking-normal">
+            <p className="text-base font-black text-[#6B7280]">本日の勤務時間</p>
+            <p className="mt-4 text-[40px] font-black leading-tight tracking-normal text-[#111827]">
               {formatDurationLong(todayWorkMinutes)}
             </p>
-            <p className="mt-4 text-sm font-bold text-slate-400">
+            <p className="mt-5 text-base font-black text-[#7C8AA5]">
               {status === "working" ? "リアルタイムで更新中" : "8時間を目安に表示"}
             </p>
           </div>
@@ -584,30 +584,42 @@ function HomePanel({
         type="button"
         disabled={loading || !staffReady || (!canClockIn && !canClockOut)}
         onClick={canClockIn ? onClockIn : onClockOut}
-        className={`mt-5 flex h-24 items-center justify-center gap-3 rounded-[34px] text-3xl font-black text-white shadow-md transition duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:translate-y-0 disabled:bg-slate-300 disabled:shadow-none dark:disabled:bg-slate-700 ${statusView.action}`}
+        className={`flex min-h-24 items-center justify-between gap-4 rounded-[26px] px-5 text-left text-white shadow-lg shadow-indigo-200/70 transition duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:cursor-default disabled:translate-y-0 disabled:shadow-lg ${statusView.action}`}
       >
         {loading ? (
           <Spinner light />
         ) : (
           <>
-            <Icon name={canClockOut ? "stop" : "play"} className="h-8 w-8" />
-            {getActionLabel(staffReady, canClockIn, canClockOut)}
+            <span className="flex items-center gap-4">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border-4 border-white/85">
+                <Icon name={!canClockIn && !canClockOut ? "check" : canClockOut ? "stop" : "play"} className="h-8 w-8" />
+              </span>
+              <span>
+                <span className="block text-3xl font-black leading-tight">
+                  {getActionLabel(staffReady, canClockIn, canClockOut)}
+                </span>
+                <span className="mt-1 block text-base font-black text-white/90">
+                  {!canClockIn && !canClockOut ? "おつかれさまでした！" : canClockOut ? "退勤時刻を確認します" : "勤務を開始します"}
+                </span>
+              </span>
+            </span>
+            <Icon name="chevronRight" className="h-8 w-8 shrink-0" />
           </>
         )}
       </button>
 
-      <GlassCard className="mt-5 p-5">
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-2 text-sm font-black text-slate-500">
-            <span className="flex items-center gap-2">
-              <Icon name="bag" className="h-4 w-4" />
+      <GlassCard className="p-5">
+        <div className="grid grid-cols-2 gap-5">
+          <label className="flex flex-col gap-3 text-sm font-black text-[#6B7280]">
+            <span className="flex items-center gap-2 text-[#6B7280]">
+              <Icon name="bag" className="h-5 w-5 text-[#6366F1]" />
               勤務区分
             </span>
             <select
               value={workType}
               disabled={!canClockIn}
               onChange={(event) => onWorkTypeChange(event.target.value as WorkType)}
-              className="h-14 rounded-3xl border border-white/70 bg-white/80 px-4 text-base font-black text-slate-900 shadow-sm outline-none transition focus:ring-2 focus:ring-blue-300 disabled:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
+              className="h-16 rounded-[24px] border border-slate-100 bg-white px-5 text-base font-black text-slate-900 shadow-md shadow-slate-200/70 outline-none transition focus:ring-2 focus:ring-[#6366F1]/30 disabled:text-slate-400"
             >
               <option value="normal">通常勤務</option>
               <option value="kitchen_car">キッチンカー</option>
@@ -909,8 +921,8 @@ function BottomNav({
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-white/60 bg-white/75 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgb(15_23_42_/_0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-none">
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_30px_rgb(15_23_42_/_0.08)] backdrop-blur-xl">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-3">
         {tabs.map((tab) => {
           const active = activePanel === tab.id;
           return (
@@ -918,13 +930,13 @@ function BottomNav({
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              className={`flex h-16 flex-col items-center justify-center rounded-3xl text-xs font-black transition duration-200 active:scale-95 ${
+              className={`flex h-[76px] flex-col items-center justify-center rounded-[22px] text-sm font-black transition duration-200 active:scale-95 ${
                 active
-                  ? "bg-slate-950 text-white shadow-md dark:bg-white dark:text-slate-950"
-                  : "text-slate-400 hover:bg-white/60 dark:text-slate-500 dark:hover:bg-white/10"
+                  ? "bg-white text-[#6366F1] shadow-md shadow-slate-200/80"
+                  : "text-[#6B7280] hover:bg-slate-50"
               }`}
             >
-              <Icon name={tab.icon} className="h-5 w-5" />
+              <Icon name={tab.icon} className="h-7 w-7" />
               <span className="mt-1">{tab.label}</span>
             </button>
           );
@@ -1087,19 +1099,19 @@ function BreakToggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex flex-col gap-2 text-sm font-black text-slate-500 dark:text-slate-400">
+    <label className="flex flex-col gap-3 text-sm font-black text-[#6B7280]">
       <span className="flex items-center gap-2">
-        <Icon name="coffee" className="h-4 w-4" />
+        <Icon name="coffee" className="h-5 w-5 text-[#6366F1]" />
         {label}
       </span>
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(!value)}
-        className={`h-14 rounded-3xl px-4 text-base font-black shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:opacity-50 ${
+        className={`h-16 rounded-[24px] px-4 text-base font-black shadow-md transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:opacity-50 ${
           value
-            ? "bg-orange-100 text-orange-700 dark:bg-orange-400/20 dark:text-orange-200"
-            : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300"
+            ? "bg-[#FF7A1A] text-white shadow-orange-200/80"
+            : "bg-slate-100 text-slate-500 shadow-slate-200/80"
         }`}
       >
         {value ? "1時間あり" : "なし"}
@@ -1117,7 +1129,7 @@ function GlassCard({
 }) {
   return (
     <section
-      className={`rounded-[32px] border border-white/60 bg-white/70 shadow-md shadow-slate-200/40 backdrop-blur-xl transition duration-300 dark:border-white/10 dark:bg-white/10 dark:shadow-none ${className}`}
+      className={`rounded-[26px] border border-slate-100 bg-white shadow-[0_12px_34px_rgb(15_23_42_/_0.10)] transition duration-300 ${className}`}
     >
       {children}
     </section>
@@ -1210,14 +1222,10 @@ function ProgressRing({
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (Math.min(progress, 100) / 100) * circumference;
   const stroke =
-    status === "working"
-      ? "stroke-blue-500"
-      : status === "clocked_out"
-        ? "stroke-indigo-500"
-        : "stroke-slate-300 dark:stroke-slate-500";
+    status === "not_clocked_in" ? "stroke-slate-300" : "stroke-[#6366F1]";
 
   return (
-    <div className="relative grid h-32 w-32 shrink-0 place-items-center">
+    <div className="relative grid h-36 w-36 shrink-0 place-items-center">
       <svg className="-rotate-90" viewBox="0 0 120 120" aria-hidden="true">
         <circle
           cx="60"
@@ -1225,7 +1233,7 @@ function ProgressRing({
           r={radius}
           fill="none"
           strokeWidth="10"
-          className="stroke-slate-200/80 dark:stroke-white/10"
+          className="stroke-slate-100"
         />
         <circle
           cx="60"
@@ -1240,8 +1248,8 @@ function ProgressRing({
         />
       </svg>
       <div className="absolute text-center">
-        <p className="text-xs font-black text-slate-400 dark:text-slate-500">8h</p>
-        <p className="mt-1 max-w-24 text-sm font-black leading-tight">{label}</p>
+        <p className="text-base font-black text-[#6B7280]">8h</p>
+        <p className="mt-1 max-w-24 text-base font-black leading-tight text-[#111827]">{label}</p>
       </div>
     </div>
   );
@@ -1250,6 +1258,8 @@ function ProgressRing({
 type IconName =
   | "bag"
   | "calendar"
+  | "check"
+  | "chevronRight"
   | "clock"
   | "coffee"
   | "download"
@@ -1286,6 +1296,18 @@ function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: str
         <svg {...common}>
           <path d="M7 3v4M17 3v4M4 9h16" />
           <path d="M5 5h14a1 1 0 0 1 1 1v15H4V6a1 1 0 0 1 1-1Z" />
+        </svg>
+      );
+    case "check":
+      return (
+        <svg {...common}>
+          <path d="m5 12 4 4L19 6" />
+        </svg>
+      );
+    case "chevronRight":
+      return (
+        <svg {...common}>
+          <path d="m9 18 6-6-6-6" />
         </svg>
       );
     case "clock":
@@ -1371,32 +1393,32 @@ function getStatusView(status: AttendanceStatus) {
     not_clocked_in: {
       label: "未出勤",
       shortLabel: "待機",
-      badge: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300",
-      text: "text-slate-600 dark:text-slate-300",
+      badge: "bg-slate-100 text-slate-600",
+      text: "text-[#111827]",
       dot: "bg-slate-300 dark:bg-slate-500",
-      iconBg: "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300",
-      statusCard: "bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-white/10 dark:to-slate-800/40",
-      action: "bg-gradient-to-br from-blue-500 to-indigo-600",
+      iconBg: "bg-[#EEF2FF] text-[#6366F1]",
+      statusCard: "",
+      action: "bg-gradient-to-r from-[#4F46E5] to-[#8B5CF6]",
     },
     working: {
       label: "勤務中",
       shortLabel: "勤務中",
-      badge: "bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-200",
-      text: "text-blue-700 dark:text-blue-200",
-      dot: "bg-blue-600",
-      iconBg: "bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-200",
-      statusCard: "bg-gradient-to-br from-blue-50/90 to-emerald-50/80 dark:from-blue-500/20 dark:to-emerald-500/10",
-      action: "bg-gradient-to-br from-orange-500 to-rose-500",
+      badge: "bg-indigo-100 text-indigo-700",
+      text: "text-[#111827]",
+      dot: "bg-[#6366F1]",
+      iconBg: "bg-[#EEF2FF] text-[#6366F1]",
+      statusCard: "",
+      action: "bg-gradient-to-r from-[#FF7A1A] to-[#F97316]",
     },
     clocked_out: {
       label: "退勤済み",
       shortLabel: "完了",
-      badge: "bg-indigo-100 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-200",
-      text: "text-indigo-700 dark:text-indigo-200",
-      dot: "bg-indigo-500",
-      iconBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-200",
-      statusCard: "bg-gradient-to-br from-indigo-50/90 to-purple-50/80 dark:from-indigo-500/20 dark:to-purple-500/10",
-      action: "bg-gradient-to-br from-indigo-500 to-purple-600",
+      badge: "bg-indigo-100 text-indigo-700",
+      text: "text-[#111827]",
+      dot: "bg-[#6366F1]",
+      iconBg: "bg-[#EEF2FF] text-[#6366F1]",
+      statusCard: "",
+      action: "bg-gradient-to-r from-[#4F46E5] to-[#8B5CF6]",
     },
   } satisfies Record<AttendanceStatus, Record<string, string>>;
 
