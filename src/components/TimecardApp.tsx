@@ -354,11 +354,13 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   if (!employeeKeyChecked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white px-6">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-6 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 dark:text-white">
         <GlassCard className="w-full max-w-md p-8 text-center">
           <Spinner />
-          <h1 className="mt-5 text-2xl font-black text-slate-950">勤怠</h1>
-          <p className="mt-2 text-base font-semibold text-slate-500">社員キーを確認しています</p>
+          <h1 className="mt-5 text-2xl font-black">勤怠</h1>
+          <p className="mt-2 text-base font-semibold text-slate-500 dark:text-slate-400">
+            社員キーを確認しています
+          </p>
         </GlassCard>
       </main>
     );
@@ -366,11 +368,11 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
 
   if (!effectiveEmployeeKey) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white px-6">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-6 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 dark:text-white">
         <GlassCard className="w-full max-w-md p-8">
           <p className="text-sm font-bold text-blue-500">Timecard</p>
-          <h1 className="mt-3 text-3xl font-black text-slate-950">社員キーが必要です</h1>
-          <p className="mt-4 text-base leading-7 text-slate-500">
+          <h1 className="mt-3 text-3xl font-black">社員キーが必要です</h1>
+          <p className="mt-4 text-base leading-7 text-slate-500 dark:text-slate-400">
             社員専用URLから開くか、URLに社員キーを指定してください。
           </p>
           {message && <MessageCard message={message} />}
@@ -380,7 +382,7 @@ export function TimecardApp({ employeeKey, initialData, initialMessage = "" }: P
   }
 
   return (
-    <main className="min-h-screen bg-white px-4 pb-28 pt-5 text-slate-950">
+    <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-indigo-50 px-4 pb-28 pt-5 text-slate-950 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 dark:text-white">
       <div className="mx-auto flex w-full max-w-md flex-col gap-5">
         {activePanel === "home" && (
           <HomePanel
@@ -517,18 +519,20 @@ function HomePanel({
   onBulkClockOut: () => void;
   onSingleStaffClockOut: (staffId: string) => void;
 }) {
+  const progress = Math.min(100, Math.max(0, (todayWorkMinutes / 480) * 100));
+
   return (
-    <>
+    <div className="animate-fade-in">
       <header className="px-1 pt-2">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-base font-bold text-slate-400">
+            <p className="text-base font-bold text-slate-500 dark:text-slate-400">
               {isGroupMode && !selectedStaff ? "スタッフ選択待ち" : displayName}
             </p>
-            <p className="mt-4 text-7xl font-black leading-none tracking-normal tabular-nums text-slate-950">
+            <p className="mt-4 text-7xl font-black leading-none tracking-normal tabular-nums">
               {displayNow ? formatClockTime(displayNow) : "--:--"}
             </p>
-            <p className="mt-3 text-lg font-bold text-slate-500">
+            <p className="mt-3 text-lg font-bold text-slate-500 dark:text-slate-400">
               {displayNow ? formatDateLine(displayNow) : "----年--月--日"}
             </p>
           </div>
@@ -536,59 +540,74 @@ function HomePanel({
             type="button"
             onClick={onRefresh}
             disabled={loading || (isGroupMode && !selectedStaff)}
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-slate-100 text-xl font-black text-slate-700 shadow-sm transition active:scale-95 disabled:opacity-40"
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white/70 text-slate-700 shadow-sm ring-1 ring-white/70 backdrop-blur-xl transition hover:scale-105 active:scale-95 disabled:opacity-40 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10"
             aria-label="更新"
           >
-            {loading ? <Spinner compact /> : "↻"}
+            {loading ? <Spinner compact /> : <Icon name="refresh" className="h-5 w-5" />}
           </button>
         </div>
       </header>
 
-      <GlassCard className="p-5">
-        <div className="flex items-center justify-between">
+      <GlassCard className={`mt-5 p-6 ${statusView.statusCard}`}>
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <p className={`text-base font-black ${statusView.text}`}>
-              <span className="mr-2">{status === "not_clocked_in" ? "○" : "●"}</span>
+            <p className={`flex items-center gap-3 text-3xl font-black ${statusView.text}`}>
+              <span className={`h-4 w-4 rounded-full ${statusView.dot} ${status === "working" ? "animate-pulse" : ""}`} />
               {staffReady ? statusView.label : "スタッフ未選択"}
             </p>
-            <p className="mt-2 text-2xl font-black text-slate-950">
+            <p className="mt-4 text-xl font-black text-slate-700 dark:text-slate-200">
               {todayLog?.clock_in ? `出勤 ${formatTime(todayLog.clock_in)}` : "まだ出勤していません"}
             </p>
           </div>
-          <span className={`rounded-full px-4 py-2 text-sm font-black ${statusView.badge}`}>
-            {statusView.shortLabel}
+          <span className={`grid h-14 w-14 shrink-0 place-items-center rounded-3xl ${statusView.iconBg}`}>
+            <Icon name="clock" className="h-7 w-7" />
           </span>
         </div>
       </GlassCard>
 
-      <GlassCard className="p-6">
-        <p className="text-base font-black text-slate-500">本日の勤務時間</p>
-        <p className="mt-3 text-5xl font-black tracking-normal text-slate-950">
-          {formatDurationLong(todayWorkMinutes)}
-        </p>
-        <p className="mt-4 text-sm font-bold text-slate-400">
-          {status === "working" ? "リアルタイムで更新中" : "実打刻ベースで表示"}
-        </p>
+      <GlassCard className="mt-5 p-6">
+        <div className="flex items-center justify-between gap-5">
+          <div className="min-w-0">
+            <p className="text-base font-black text-slate-500 dark:text-slate-400">本日の勤務時間</p>
+            <p className="mt-3 text-4xl font-black tracking-normal">
+              {formatDurationLong(todayWorkMinutes)}
+            </p>
+            <p className="mt-4 text-sm font-bold text-slate-400">
+              {status === "working" ? "リアルタイムで更新中" : "8時間を目安に表示"}
+            </p>
+          </div>
+          <ProgressRing progress={progress} label={formatDurationLong(todayWorkMinutes)} status={status} />
+        </div>
       </GlassCard>
 
       <button
         type="button"
         disabled={loading || !staffReady || (!canClockIn && !canClockOut)}
         onClick={canClockIn ? onClockIn : onClockOut}
-        className={`h-24 rounded-[32px] text-3xl font-black text-white shadow-sm transition active:scale-[0.98] disabled:bg-slate-300 ${statusView.action}`}
+        className={`mt-5 flex h-24 items-center justify-center gap-3 rounded-[34px] text-3xl font-black text-white shadow-md transition duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:translate-y-0 disabled:bg-slate-300 disabled:shadow-none dark:disabled:bg-slate-700 ${statusView.action}`}
       >
-        {loading ? <Spinner light /> : getActionLabel(staffReady, canClockIn, canClockOut)}
+        {loading ? (
+          <Spinner light />
+        ) : (
+          <>
+            <Icon name={canClockOut ? "stop" : "play"} className="h-8 w-8" />
+            {getActionLabel(staffReady, canClockIn, canClockOut)}
+          </>
+        )}
       </button>
 
-      <GlassCard className="p-5">
+      <GlassCard className="mt-5 p-5">
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-2 text-sm font-black text-slate-500">
-            勤務区分
+            <span className="flex items-center gap-2">
+              <Icon name="bag" className="h-4 w-4" />
+              勤務区分
+            </span>
             <select
               value={workType}
               disabled={!canClockIn}
               onChange={(event) => onWorkTypeChange(event.target.value as WorkType)}
-              className="h-14 rounded-3xl border border-white/70 bg-white/80 px-4 text-base font-black text-slate-900 outline-none shadow-sm disabled:text-slate-400"
+              className="h-14 rounded-3xl border border-white/70 bg-white/80 px-4 text-base font-black text-slate-900 shadow-sm outline-none transition focus:ring-2 focus:ring-blue-300 disabled:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
             >
               <option value="normal">通常勤務</option>
               <option value="kitchen_car">キッチンカー</option>
@@ -617,7 +636,7 @@ function HomePanel({
       )}
 
       {message && <MessageCard message={message} />}
-    </>
+    </div>
   );
 }
 
@@ -643,8 +662,11 @@ function GroupStaffPanel({
   return (
     <GlassCard className="p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-black">スタッフ</h2>
-        <span className="rounded-full bg-white/80 px-3 py-1 text-sm font-black text-slate-500">
+        <h2 className="flex items-center gap-2 text-xl font-black">
+          <Icon name="users" className="h-5 w-5 text-blue-600 dark:text-blue-300" />
+          スタッフ
+        </h2>
+        <span className="rounded-full bg-white/80 px-3 py-1 text-sm font-black text-slate-500 shadow-sm dark:bg-white/10 dark:text-slate-300">
           {selectedStaffIds.length}名
         </span>
       </div>
@@ -675,7 +697,7 @@ function GroupStaffPanel({
           type="button"
           disabled={loading || selectedStaffIds.length === 0}
           onClick={onBulkClockIn}
-          className="h-14 rounded-3xl bg-blue-600 text-base font-black text-white shadow-sm transition active:scale-95 disabled:bg-slate-300"
+          className="h-14 rounded-3xl bg-gradient-to-br from-blue-500 to-indigo-600 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:bg-none disabled:bg-slate-300"
         >
           一括出勤
         </button>
@@ -683,7 +705,7 @@ function GroupStaffPanel({
           type="button"
           disabled={loading || selectedStaffIds.length === 0}
           onClick={onBulkClockOut}
-          className="h-14 rounded-3xl bg-red-500 text-base font-black text-white shadow-sm transition active:scale-95 disabled:bg-slate-300"
+          className="h-14 rounded-3xl bg-gradient-to-br from-orange-500 to-rose-500 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:bg-none disabled:bg-slate-300"
         >
           一括退勤
         </button>
@@ -723,8 +745,10 @@ function StaffPill({
         event.preventDefault();
         onSelect();
       }}
-      className={`min-w-[148px] rounded-[28px] border p-4 shadow-sm transition active:scale-[0.98] ${
-        selected ? "border-blue-500 bg-blue-50" : "border-white/80 bg-white/80"
+      className={`min-w-[148px] rounded-[28px] border p-4 shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] ${
+        selected
+          ? "border-blue-400 bg-blue-50/90 dark:border-blue-400/60 dark:bg-blue-500/20"
+          : "border-white/70 bg-white/70 dark:border-white/10 dark:bg-white/10"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -741,7 +765,7 @@ function StaffPill({
             event.stopPropagation();
             onClockOut();
           }}
-          className="mt-4 h-10 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:bg-slate-300"
+          className="mt-4 h-10 w-full rounded-full bg-gradient-to-br from-orange-500 to-rose-500 text-sm font-black text-white disabled:bg-none disabled:bg-slate-300"
         >
           退勤
         </button>
@@ -752,12 +776,12 @@ function StaffPill({
 
 function RecentPanel({ staffReady, logs }: { staffReady: boolean; logs: AttendanceLog[] }) {
   return (
-    <>
-      <ScreenTitle icon="◷" title="実績" subtitle="最近の打刻" />
+    <div className="animate-fade-in">
+      <ScreenTitle icon="history" title="実績" subtitle="最近の打刻" />
       {!staffReady ? (
         <EmptyStaffNotice />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="mt-5 flex flex-col gap-3">
           {logs.length ? (
             logs.map((log) => <RecentLogCard key={log.id} log={log} />)
           ) : (
@@ -765,7 +789,7 @@ function RecentPanel({ staffReady, logs }: { staffReady: boolean; logs: Attendan
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -787,8 +811,8 @@ function MonthlyPanel({
   onMonthChange: (month: string) => void;
 }) {
   return (
-    <>
-      <ScreenTitle icon="▦" title="月次" subtitle="ひと月のまとめ" />
+    <div className="animate-fade-in">
+      <ScreenTitle icon="calendar" title="月次" subtitle="ひと月のまとめ" />
       <MonthSelect
         selectedMonth={selectedMonth}
         monthOptions={monthOptions}
@@ -797,9 +821,9 @@ function MonthlyPanel({
       />
       {staffReady ? (
         <>
-          <GlassCard className="p-6">
-            <p className="text-base font-black text-slate-500">{formatMonthLabel(selectedMonth)}</p>
-            <p className="mt-3 text-5xl font-black text-slate-950">
+          <GlassCard className="mt-5 p-6">
+            <p className="text-base font-black text-slate-500 dark:text-slate-400">{formatMonthLabel(selectedMonth)}</p>
+            <p className="mt-3 text-5xl font-black">
               {loading ? "..." : formatDurationLong(summary?.totalWorkMinutes ?? 0)}
             </p>
             <div className="mt-6 grid grid-cols-2 gap-3">
@@ -807,7 +831,7 @@ function MonthlyPanel({
               <SummaryTile label="出勤日数" value={loading ? "..." : `${summary?.workedDays ?? 0}日`} />
             </div>
           </GlassCard>
-          <div className="flex flex-col gap-3">
+          <div className="mt-5 flex flex-col gap-3">
             {logs.length ? (
               logs.map((log) => <MonthlyLogCard key={log.id} log={log} />)
             ) : (
@@ -818,7 +842,7 @@ function MonthlyPanel({
       ) : (
         <EmptyStaffNotice />
       )}
-    </>
+    </div>
   );
 }
 
@@ -836,9 +860,9 @@ function PdfPanel({
   onMonthChange: (month: string) => void;
 }) {
   return (
-    <>
-      <ScreenTitle icon="↓" title="PDF" subtitle="月別勤怠を出力" />
-      <GlassCard className="p-6">
+    <div className="animate-fade-in">
+      <ScreenTitle icon="file" title="PDF" subtitle="月別勤怠を出力" />
+      <GlassCard className="mt-5 p-6">
         <MonthSelect
           selectedMonth={selectedMonth}
           monthOptions={monthOptions}
@@ -848,22 +872,25 @@ function PdfPanel({
         <a
           href={pdfUrl || undefined}
           aria-disabled={!pdfUrl}
-          className={`mt-6 flex h-20 w-full items-center justify-center rounded-[32px] text-2xl font-black shadow-sm transition active:scale-[0.98] ${
-            pdfUrl ? "bg-slate-950 text-white" : "pointer-events-none bg-slate-200 text-slate-400"
+          className={`mt-6 flex h-20 w-full items-center justify-center gap-3 rounded-[32px] text-2xl font-black shadow-md transition hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] ${
+            pdfUrl
+              ? "bg-gradient-to-br from-slate-900 to-indigo-900 text-white dark:from-indigo-500 dark:to-sky-500"
+              : "pointer-events-none bg-slate-200 text-slate-400 dark:bg-slate-700 dark:text-slate-500"
           }`}
         >
+          <Icon name="download" className="h-7 w-7" />
           PDFを出力
         </a>
       </GlassCard>
-      <GlassCard className="p-5">
-        <p className="text-sm font-black text-slate-400">今後の拡張</p>
+      <GlassCard className="mt-5 p-5">
+        <p className="text-sm font-black text-slate-400 dark:text-slate-500">今後の拡張</p>
         <div className="mt-4 grid gap-3">
           <ExportOption label="PDF種類追加" />
           <ExportOption label="CSV出力" />
           <ExportOption label="給与連携" />
         </div>
       </GlassCard>
-    </>
+    </div>
   );
 }
 
@@ -874,15 +901,15 @@ function BottomNav({
   activePanel: ActivePanel;
   onChange: (panel: ActivePanel) => void;
 }) {
-  const tabs: { id: ActivePanel; label: string; icon: string }[] = [
-    { id: "home", label: "ホーム", icon: "⌂" },
-    { id: "recent", label: "実績", icon: "◷" },
-    { id: "monthly", label: "月次", icon: "▦" },
-    { id: "pdf", label: "PDF", icon: "↓" },
+  const tabs: { id: ActivePanel; label: string; icon: IconName }[] = [
+    { id: "home", label: "ホーム", icon: "home" },
+    { id: "recent", label: "実績", icon: "history" },
+    { id: "monthly", label: "月次", icon: "calendar" },
+    { id: "pdf", label: "PDF", icon: "file" },
   ];
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200/70 bg-white/80 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-white/60 bg-white/75 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgb(15_23_42_/_0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-none">
       <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
         {tabs.map((tab) => {
           const active = activePanel === tab.id;
@@ -891,11 +918,13 @@ function BottomNav({
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              className={`flex h-16 flex-col items-center justify-center rounded-3xl text-xs font-black transition ${
-                active ? "bg-slate-950 text-white shadow-sm" : "text-slate-400"
+              className={`flex h-16 flex-col items-center justify-center rounded-3xl text-xs font-black transition duration-200 active:scale-95 ${
+                active
+                  ? "bg-slate-950 text-white shadow-md dark:bg-white dark:text-slate-950"
+                  : "text-slate-400 hover:bg-white/60 dark:text-slate-500 dark:hover:bg-white/10"
               }`}
             >
-              <span className="text-xl leading-none">{tab.icon}</span>
+              <Icon name={tab.icon} className="h-5 w-5" />
               <span className="mt-1">{tab.label}</span>
             </button>
           );
@@ -927,33 +956,33 @@ function ClockOutModal({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-30 flex items-end bg-slate-950/35 px-4 py-5 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-30 flex items-end bg-slate-950/35 px-4 py-5 backdrop-blur-md sm:items-center">
       <form
         onSubmit={onSubmit}
-        className="mx-auto w-full max-w-md animate-slide-up rounded-[32px] bg-white/95 p-6 shadow-2xl backdrop-blur-xl"
+        className="mx-auto w-full max-w-md animate-slide-up rounded-[32px] border border-white/70 bg-white/90 p-6 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/90"
       >
         <h2 className="text-2xl font-black">退勤前の確認</h2>
-        <p className="mt-2 text-base leading-7 text-slate-500">
+        <p className="mt-2 text-base leading-7 text-slate-500 dark:text-slate-400">
           必要な場合は時刻と休憩設定を調整してください。
         </p>
         <div className="mt-6 grid gap-4">
-          <label className="flex flex-col gap-2 text-sm font-black text-slate-500">
+          <label className="flex flex-col gap-2 text-sm font-black text-slate-500 dark:text-slate-400">
             出勤時刻
             <input
               type="datetime-local"
               value={clockInEdit}
               onChange={(event) => onClockInEditChange(event.target.value)}
-              className="h-14 rounded-3xl border border-slate-200 bg-slate-50 px-4 text-base font-bold outline-none focus:border-blue-400"
+              className="h-14 rounded-3xl border border-slate-200 bg-slate-50 px-4 text-base font-bold text-slate-950 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-white/10 dark:bg-white/10 dark:text-white"
               required
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm font-black text-slate-500">
+          <label className="flex flex-col gap-2 text-sm font-black text-slate-500 dark:text-slate-400">
             退勤時刻
             <input
               type="datetime-local"
               value={clockOutEdit}
               onChange={(event) => onClockOutEditChange(event.target.value)}
-              className="h-14 rounded-3xl border border-slate-200 bg-slate-50 px-4 text-base font-bold outline-none focus:border-blue-400"
+              className="h-14 rounded-3xl border border-slate-200 bg-slate-50 px-4 text-base font-bold text-slate-950 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-200 dark:border-white/10 dark:bg-white/10 dark:text-white"
               required
             />
           </label>
@@ -963,14 +992,14 @@ function ClockOutModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-14 rounded-3xl bg-slate-100 text-base font-black text-slate-700 transition active:scale-95"
+            className="h-14 rounded-3xl bg-slate-100 text-base font-black text-slate-700 transition active:scale-95 dark:bg-white/10 dark:text-slate-200"
           >
             キャンセル
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="h-14 rounded-3xl bg-red-500 text-base font-black text-white shadow-sm transition active:scale-95 disabled:bg-slate-300"
+            className="h-14 rounded-3xl bg-gradient-to-br from-orange-500 to-rose-500 text-base font-black text-white shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:bg-none disabled:bg-slate-300"
           >
             退勤する
           </button>
@@ -986,7 +1015,7 @@ function RecentLogCard({ log }: { log: AttendanceLog }) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-2xl font-black">{formatShortDate(log.date)}</p>
-          <p className="mt-2 text-lg font-bold text-slate-500">{formatTimeRange(log)}</p>
+          <p className="mt-2 text-lg font-bold text-slate-500 dark:text-slate-400">{formatTimeRange(log)}</p>
         </div>
         <p className="text-2xl font-black tabular-nums">{formatDurationLong(log.work_minutes ?? 0)}</p>
       </div>
@@ -1000,8 +1029,8 @@ function MonthlyLogCard({ log }: { log: AttendanceLog }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xl font-black">{formatShortDate(log.date)}</p>
-          <p className="mt-2 text-base font-bold text-slate-500">{formatTimeRange(log)}</p>
-          <p className="mt-2 text-sm font-black text-slate-400">
+          <p className="mt-2 text-base font-bold text-slate-500 dark:text-slate-400">{formatTimeRange(log)}</p>
+          <p className="mt-2 text-sm font-black text-slate-400 dark:text-slate-500">
             {getWorkTypeLabel(log.work_type)} / {log.break_flag ? "休憩あり" : "休憩なし"}
           </p>
         </div>
@@ -1028,13 +1057,13 @@ function MonthSelect({
   onMonthChange: (month: string) => void;
 }) {
   return (
-    <label className="flex flex-col gap-2 text-sm font-black text-slate-500">
+    <label className="flex flex-col gap-2 text-sm font-black text-slate-500 dark:text-slate-400">
       月選択
       <select
         value={selectedMonth}
         disabled={disabled}
         onChange={(event) => onMonthChange(event.target.value)}
-        className="h-14 rounded-3xl border border-slate-200 bg-white px-4 text-lg font-black text-slate-950 outline-none shadow-sm disabled:text-slate-400"
+        className="h-14 rounded-3xl border border-white/70 bg-white/80 px-4 text-lg font-black text-slate-950 shadow-sm outline-none transition focus:ring-2 focus:ring-blue-300 disabled:text-slate-400 dark:border-white/10 dark:bg-white/10 dark:text-white"
       >
         {monthOptions.map((month) => (
           <option key={month} value={month}>
@@ -1058,14 +1087,19 @@ function BreakToggle({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex flex-col gap-2 text-sm font-black text-slate-500">
-      {label}
+    <label className="flex flex-col gap-2 text-sm font-black text-slate-500 dark:text-slate-400">
+      <span className="flex items-center gap-2">
+        <Icon name="coffee" className="h-4 w-4" />
+        {label}
+      </span>
       <button
         type="button"
         disabled={disabled}
         onClick={() => onChange(!value)}
-        className={`h-14 rounded-3xl px-4 text-base font-black shadow-sm transition active:scale-95 disabled:opacity-50 ${
-          value ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500"
+        className={`h-14 rounded-3xl px-4 text-base font-black shadow-sm transition hover:-translate-y-0.5 active:translate-y-0 active:scale-95 disabled:opacity-50 ${
+          value
+            ? "bg-orange-100 text-orange-700 dark:bg-orange-400/20 dark:text-orange-200"
+            : "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300"
         }`}
       >
         {value ? "1時間あり" : "なし"}
@@ -1083,7 +1117,7 @@ function GlassCard({
 }) {
   return (
     <section
-      className={`rounded-[32px] border border-white/80 bg-slate-50/80 shadow-sm backdrop-blur-xl ${className}`}
+      className={`rounded-[32px] border border-white/60 bg-white/70 shadow-md shadow-slate-200/40 backdrop-blur-xl transition duration-300 dark:border-white/10 dark:bg-white/10 dark:shadow-none ${className}`}
     >
       {children}
     </section>
@@ -1095,19 +1129,19 @@ function ScreenTitle({
   title,
   subtitle,
 }: {
-  icon: string;
+  icon: IconName;
   title: string;
   subtitle: string;
 }) {
   return (
     <header className="px-1 pt-2">
       <div className="flex items-center gap-3">
-        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-100 text-2xl font-black">
-          {icon}
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white/70 text-slate-700 shadow-sm backdrop-blur-xl dark:bg-white/10 dark:text-slate-200">
+          <Icon name={icon} className="h-6 w-6" />
         </span>
         <div>
           <h1 className="text-4xl font-black tracking-normal">{title}</h1>
-          <p className="mt-1 text-base font-bold text-slate-400">{subtitle}</p>
+          <p className="mt-1 text-base font-bold text-slate-400 dark:text-slate-500">{subtitle}</p>
         </div>
       </div>
     </header>
@@ -1116,8 +1150,8 @@ function ScreenTitle({
 
 function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl bg-white/80 p-4 shadow-sm">
-      <p className="text-sm font-black text-slate-400">{label}</p>
+    <div className="rounded-3xl bg-white/70 p-4 shadow-sm dark:bg-white/10">
+      <p className="text-sm font-black text-slate-400 dark:text-slate-500">{label}</p>
       <p className="mt-2 text-2xl font-black">{value}</p>
     </div>
   );
@@ -1125,9 +1159,9 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
 
 function ExportOption({ label }: { label: string }) {
   return (
-    <div className="flex h-14 items-center justify-between rounded-3xl bg-white/80 px-4 shadow-sm">
-      <span className="text-base font-black text-slate-600">{label}</span>
-      <span className="text-xl font-black text-slate-300">+</span>
+    <div className="flex h-14 items-center justify-between rounded-3xl bg-white/70 px-4 shadow-sm dark:bg-white/10">
+      <span className="text-base font-black text-slate-600 dark:text-slate-300">{label}</span>
+      <span className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-lg font-black text-slate-400 dark:bg-white/10">+</span>
     </div>
   );
 }
@@ -1139,14 +1173,14 @@ function EmptyStaffNotice() {
 function EmptyState({ message }: { message: string }) {
   return (
     <GlassCard className="p-6 text-center">
-      <p className="text-base font-bold text-slate-400">{message}</p>
+      <p className="text-base font-bold text-slate-400 dark:text-slate-500">{message}</p>
     </GlassCard>
   );
 }
 
 function MessageCard({ message }: { message: string }) {
   return (
-    <p className="rounded-3xl bg-blue-50 px-5 py-4 text-base font-bold leading-7 text-blue-800">
+    <p className="rounded-3xl border border-blue-100 bg-blue-50/90 px-5 py-4 text-base font-bold leading-7 text-blue-800 shadow-sm backdrop-blur-xl dark:border-blue-400/20 dark:bg-blue-500/15 dark:text-blue-100">
       {message}
     </p>
   );
@@ -1163,6 +1197,173 @@ function Spinner({ light = false, compact = false }: { light?: boolean; compact?
   );
 }
 
+function ProgressRing({
+  progress,
+  label,
+  status,
+}: {
+  progress: number;
+  label: string;
+  status: AttendanceStatus;
+}) {
+  const radius = 46;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.min(progress, 100) / 100) * circumference;
+  const stroke =
+    status === "working"
+      ? "stroke-blue-500"
+      : status === "clocked_out"
+        ? "stroke-indigo-500"
+        : "stroke-slate-300 dark:stroke-slate-500";
+
+  return (
+    <div className="relative grid h-32 w-32 shrink-0 place-items-center">
+      <svg className="-rotate-90" viewBox="0 0 120 120" aria-hidden="true">
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          strokeWidth="10"
+          className="stroke-slate-200/80 dark:stroke-white/10"
+        />
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          fill="none"
+          strokeLinecap="round"
+          strokeWidth="10"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          className={`${stroke} transition-[stroke-dashoffset] duration-700 ease-out`}
+        />
+      </svg>
+      <div className="absolute text-center">
+        <p className="text-xs font-black text-slate-400 dark:text-slate-500">8h</p>
+        <p className="mt-1 max-w-24 text-sm font-black leading-tight">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+type IconName =
+  | "bag"
+  | "calendar"
+  | "clock"
+  | "coffee"
+  | "download"
+  | "file"
+  | "history"
+  | "home"
+  | "play"
+  | "refresh"
+  | "stop"
+  | "users";
+
+function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
+  const common = {
+    className,
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 2,
+    viewBox: "0 0 24 24",
+    "aria-hidden": true,
+  };
+
+  switch (name) {
+    case "bag":
+      return (
+        <svg {...common}>
+          <path d="M6 8h12l-1 11H7L6 8Z" />
+          <path d="M9 8a3 3 0 0 1 6 0" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...common}>
+          <path d="M7 3v4M17 3v4M4 9h16" />
+          <path d="M5 5h14a1 1 0 0 1 1 1v15H4V6a1 1 0 0 1 1-1Z" />
+        </svg>
+      );
+    case "clock":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 2" />
+        </svg>
+      );
+    case "coffee":
+      return (
+        <svg {...common}>
+          <path d="M5 8h11v5a5 5 0 0 1-5 5H9a4 4 0 0 1-4-4V8Z" />
+          <path d="M16 9h2a2 2 0 0 1 0 4h-2M7 3v2M11 3v2M15 3v2" />
+        </svg>
+      );
+    case "download":
+      return (
+        <svg {...common}>
+          <path d="M12 3v11" />
+          <path d="m7 10 5 5 5-5" />
+          <path d="M5 21h14" />
+        </svg>
+      );
+    case "file":
+      return (
+        <svg {...common}>
+          <path d="M7 3h8l4 4v17H7V3Z" />
+          <path d="M15 3v5h5M10 13h6M10 17h6" />
+        </svg>
+      );
+    case "history":
+      return (
+        <svg {...common}>
+          <path d="M4 12a8 8 0 1 0 3-6" />
+          <path d="M4 4v6h6M12 8v5l3 2" />
+        </svg>
+      );
+    case "home":
+      return (
+        <svg {...common}>
+          <path d="m4 11 8-7 8 7" />
+          <path d="M6 10v10h12V10" />
+        </svg>
+      );
+    case "play":
+      return (
+        <svg {...common}>
+          <path d="M8 5v14l11-7-11-7Z" />
+        </svg>
+      );
+    case "refresh":
+      return (
+        <svg {...common}>
+          <path d="M20 7v5h-5" />
+          <path d="M4 17v-5h5" />
+          <path d="M6 9a7 7 0 0 1 11-2l3 3" />
+          <path d="M18 15a7 7 0 0 1-11 2l-3-3" />
+        </svg>
+      );
+    case "stop":
+      return (
+        <svg {...common}>
+          <rect x="6" y="6" width="12" height="12" rx="3" />
+        </svg>
+      );
+    case "users":
+      return (
+        <svg {...common}>
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3 21a6 6 0 0 1 12 0" />
+          <path d="M16 11a3 3 0 1 0-1-5" />
+          <path d="M17 21a5 5 0 0 0-3-4.5" />
+        </svg>
+      );
+  }
+}
+
 type StatusView = ReturnType<typeof getStatusView>;
 
 function getStatusView(status: AttendanceStatus) {
@@ -1170,26 +1371,32 @@ function getStatusView(status: AttendanceStatus) {
     not_clocked_in: {
       label: "未出勤",
       shortLabel: "待機",
-      badge: "bg-slate-100 text-slate-500",
-      text: "text-slate-500",
-      dot: "bg-slate-300",
-      action: "bg-blue-600",
+      badge: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300",
+      text: "text-slate-600 dark:text-slate-300",
+      dot: "bg-slate-300 dark:bg-slate-500",
+      iconBg: "bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300",
+      statusCard: "bg-gradient-to-br from-white/80 to-slate-100/80 dark:from-white/10 dark:to-slate-800/40",
+      action: "bg-gradient-to-br from-blue-500 to-indigo-600",
     },
     working: {
       label: "勤務中",
       shortLabel: "勤務中",
-      badge: "bg-blue-100 text-blue-700",
-      text: "text-blue-700",
+      badge: "bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-200",
+      text: "text-blue-700 dark:text-blue-200",
       dot: "bg-blue-600",
-      action: "bg-red-500",
+      iconBg: "bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-200",
+      statusCard: "bg-gradient-to-br from-blue-50/90 to-emerald-50/80 dark:from-blue-500/20 dark:to-emerald-500/10",
+      action: "bg-gradient-to-br from-orange-500 to-rose-500",
     },
     clocked_out: {
       label: "退勤済み",
       shortLabel: "完了",
-      badge: "bg-emerald-100 text-emerald-700",
-      text: "text-emerald-700",
-      dot: "bg-emerald-600",
-      action: "bg-emerald-600",
+      badge: "bg-indigo-100 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-200",
+      text: "text-indigo-700 dark:text-indigo-200",
+      dot: "bg-indigo-500",
+      iconBg: "bg-indigo-100 text-indigo-700 dark:bg-indigo-400/15 dark:text-indigo-200",
+      statusCard: "bg-gradient-to-br from-indigo-50/90 to-purple-50/80 dark:from-indigo-500/20 dark:to-purple-500/10",
+      action: "bg-gradient-to-br from-indigo-500 to-purple-600",
     },
   } satisfies Record<AttendanceStatus, Record<string, string>>;
 

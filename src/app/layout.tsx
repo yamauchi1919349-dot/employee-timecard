@@ -2,14 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "タイムカード",
-  applicationName: "タイムカード",
-  description: "社員勤怠管理タイムカード",
+  title: "Timecard",
+  applicationName: "Timecard",
+  description: "iPhoneで使いやすい勤怠タイムカード",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "タイムカード",
-    statusBarStyle: "default",
+    title: "Timecard",
+    statusBarStyle: "black-translucent",
   },
   icons: {
     icon: [
@@ -22,7 +22,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#eef2ff" },
+    { media: "(prefers-color-scheme: dark)", color: "#020617" },
+  ],
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -32,7 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col bg-white dark:bg-slate-950">{children}</body>
     </html>
   );
 }
