@@ -12,18 +12,18 @@
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "/icons/favicon-32.png",
-      "sizes": "32x32",
+      "src": "/icons/favicon-v2.png",
+      "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "/icons/timecard-icon-192.png",
+      "src": "/icons/timecard-icon-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/timecard-icon-512.png",
+      "src": "/icons/timecard-icon-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
