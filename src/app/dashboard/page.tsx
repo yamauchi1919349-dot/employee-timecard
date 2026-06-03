@@ -42,12 +42,7 @@ function DashboardRouter() {
   }
 
   if (role === "staff") {
-    return (
-      <>
-        <AuthDebugPanel />
-        <SalesTimecardApp />
-      </>
-    );
+    return <SalesTimecardApp />;
   }
 
   return <DashboardContent role={role} />;
@@ -88,8 +83,6 @@ function DashboardContent({ role }: { role: string }) {
   return (
     <main data-route="sales-dashboard" className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
-        <AuthDebugPanel />
-
         <header className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-indigo-600">{data?.company?.name ?? "Timecard"}</p>
@@ -157,35 +150,6 @@ function DashboardContent({ role }: { role: string }) {
         </nav>
       </div>
     </main>
-  );
-}
-
-function AuthDebugPanel() {
-  const { session, profile } = useAuth();
-
-  return (
-    <section className="mx-auto mt-3 w-full max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold leading-6 text-amber-950 shadow-sm">
-      <p className="text-sm font-black">Auth Debug</p>
-      <dl className="mt-2 grid gap-1 break-all">
-        <DebugRow label="session.user.email" value={session?.user.email} />
-        <DebugRow label="session.user.id" value={session?.user.id} />
-        <DebugRow label="profile.email" value={profile?.email} />
-        <DebugRow label="profile.id" value={profile?.id} />
-        <DebugRow label="profile.user_id" value={profile?.user_id} />
-        <DebugRow label="profile.role" value={profile?.role} />
-        <DebugRow label="profile.role.normalized" value={normalizeRole(profile?.role)} />
-        <DebugRow label="profile.company_id" value={profile?.company_id} />
-      </dl>
-    </section>
-  );
-}
-
-function DebugRow({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div>
-      <dt className="inline text-amber-700">{label}: </dt>
-      <dd className="inline">{value || "-"}</dd>
-    </div>
   );
 }
 
