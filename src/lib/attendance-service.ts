@@ -10,6 +10,7 @@ import {
   parseJapaneseDatetimeLocal,
 } from "./attendance";
 import { getGroupStaffConfig, getGroupStaffConfigs } from "./group-staff";
+import { isReservedMemberKey } from "./reserved-routes";
 import {
   AttendanceLog,
   CalendarDay,
@@ -49,6 +50,10 @@ function throwWithContext(error: unknown, context: string): never {
 
 export async function getMemberByKey(supabase: Supabase, key: string) {
   assertLegacyKeyAccessAllowed();
+
+  if (isReservedMemberKey(key)) {
+    throw new Error("このURLはシステム予約語のため、従業員キーとして使用できません。");
+  }
 
   const { data, error } = await supabase
     .from("members")

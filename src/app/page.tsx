@@ -1,4 +1,5 @@
 import { TimecardApp } from "@/components/TimecardApp";
+import { isReservedMemberKey } from "@/lib/reserved-routes";
 import { loadInitialTimecardData } from "@/lib/timecard-initial-data";
 
 export default async function Home({
@@ -7,7 +8,9 @@ export default async function Home({
   searchParams: Promise<{ k?: string }>;
 }) {
   const { k } = await searchParams;
-  const employeeKey = k?.trim() || null;
+  const requestedKey = k?.trim() || null;
+  const employeeKey =
+    requestedKey && !isReservedMemberKey(requestedKey) ? requestedKey : null;
   const initial = await loadInitialTimecardData(employeeKey ?? undefined);
   return (
     <TimecardApp
