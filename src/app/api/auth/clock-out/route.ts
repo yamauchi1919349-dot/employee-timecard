@@ -1,0 +1,48 @@
+import { NextResponse } from "next/server";
+import { getBusinessDate } from "@/lib/attendance";
+import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
+
+export async function POST(request: Request) {
+  try {
+    const profile = await getAuthenticatedProfile(request);
+    if (!profile) {
+      return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
+    }
+
+    const supabase = createSupabaseAdmin();
+    const workDate = getBusinessDate();
+    const { data: existing, error: existingError } = await supabase
+      .from("attendance")
+      .select("*")
+      .eq("company_id", profile.company_id)
+      .eq("user_id", profile.user_id)
+      .eq("work_date", workDate)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+    if (!existing?.clock_in) {
+      return NextResponse.json({ message: "出勤記録がありません。" }, { status: 400 });
+    }
+    if (existing.clock_out) {
+      return NextResponse.json({ message: "すでに退勤済みです。" }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from("attendance")
+      .update({ clock_out: new Date().toISOString() })
+      .eq("id", existing.id)
+      .eq("company_id", profile.company_id)
+      .eq("user_id", profile.user_id)
+      .select("*")
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ attendance: data });
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : "退勤処理に失敗しました。" },
+      { status: 400 },
+    );
+  }
+}

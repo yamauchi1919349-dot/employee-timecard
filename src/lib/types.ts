@@ -5,7 +5,41 @@ export type CalendarDayType = "workday" | "holiday";
 export type Company = {
   id: string;
   name: string;
+  plan?: string;
   created_at: string;
+};
+
+export type TenantRole = "owner" | "manager" | "staff";
+
+export type Profile = {
+  id: string;
+  user_id: string;
+  company_id: string;
+  store_id: string | null;
+  name: string;
+  email: string | null;
+  role: TenantRole;
+  created_at: string;
+};
+
+export type Store = {
+  id: string;
+  company_id: string;
+  name: string;
+  created_at: string;
+};
+
+export type Attendance = {
+  id: string;
+  company_id: string;
+  user_id: string;
+  profile_id: string | null;
+  store_id: string | null;
+  clock_in: string | null;
+  clock_out: string | null;
+  work_date: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Member = {

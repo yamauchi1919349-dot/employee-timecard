@@ -1,4 +1,4 @@
-import { createSupabaseAdmin } from "./supabase";
+import { assertLegacyKeyAccessAllowed, createSupabaseAdmin } from "./supabase";
 import {
   appendNote,
   buildRevisionNote,
@@ -48,6 +48,8 @@ function throwWithContext(error: unknown, context: string): never {
 }
 
 export async function getMemberByKey(supabase: Supabase, key: string) {
+  assertLegacyKeyAccessAllowed();
+
   const { data, error } = await supabase
     .from("members")
     .select("*")
