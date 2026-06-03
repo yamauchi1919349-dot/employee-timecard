@@ -1,6 +1,8 @@
 export type WorkType = "normal" | "kitchen_car";
+export type SalesWorkType = "normal" | "paid_leave" | "half_day" | "other";
 export type AttendanceStatus = "not_clocked_in" | "working" | "clocked_out";
 export type CalendarDayType = "workday" | "holiday";
+export type SalesDayType = "workday" | "holiday" | "shift";
 
 export type Company = {
   id: string;
@@ -35,6 +37,10 @@ export type Attendance = {
   user_id: string;
   profile_id: string | null;
   store_id: string | null;
+  work_type: SalesWorkType;
+  break_minutes: number;
+  day_type: SalesDayType;
+  note: string | null;
   clock_in: string | null;
   clock_out: string | null;
   work_date: string;

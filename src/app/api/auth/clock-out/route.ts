@@ -4,6 +4,9 @@ import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 
 export async function POST(request: Request) {
   try {
+    const body = (await request.json().catch(() => ({}))) as {
+      breakMinutes?: number;
+    };
     const profile = await getAuthenticatedProfile(request);
     if (!profile) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
@@ -28,9 +31,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "すでに退勤済みです。" }, { status: 400 });
     }
 
+    const breakMinutes =
+      typeof body.breakMinutes === "number" && body.breakMinutes >= 0 && body.breakMinutes <= 240
+        ? body.breakMinutes
+        : existing.break_minutes;
+
     const { data, error } = await supabase
       .from("attendance")
-      .update({ clock_out: new Date().toISOString() })
+      .update({ clock_out: new Date().toISOString(), break_minutes: breakMinutes })
       .eq("id", existing.id)
       .eq("company_id", profile.company_id)
       .eq("user_id", profile.user_id)

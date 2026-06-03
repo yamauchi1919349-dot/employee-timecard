@@ -76,7 +76,7 @@ function StaffAdminContent() {
   }, [session]);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
+    <main data-route="sales-admin-staff" className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
         <header className="flex items-start justify-between gap-4">
           <div>

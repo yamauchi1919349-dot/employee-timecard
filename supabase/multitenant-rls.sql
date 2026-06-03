@@ -43,12 +43,37 @@ create table if not exists public.attendance (
   user_id uuid not null references auth.users(id) on delete cascade,
   profile_id uuid references public.profiles(id) on delete set null,
   store_id uuid references public.stores(id) on delete set null,
+  work_type text not null default 'normal',
+  break_minutes integer not null default 60,
+  day_type text not null default 'workday',
+  note text,
   clock_in timestamptz,
   clock_out timestamptz,
   work_date date not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.attendance
+  add column if not exists work_type text not null default 'normal',
+  add column if not exists break_minutes integer not null default 60,
+  add column if not exists day_type text not null default 'workday',
+  add column if not exists note text;
+
+alter table public.attendance
+  drop constraint if exists attendance_work_type_check,
+  add constraint attendance_work_type_check
+    check (work_type in ('normal', 'paid_leave', 'half_day', 'other'));
+
+alter table public.attendance
+  drop constraint if exists attendance_break_minutes_check,
+  add constraint attendance_break_minutes_check
+    check (break_minutes >= 0 and break_minutes <= 240);
+
+alter table public.attendance
+  drop constraint if exists attendance_day_type_check,
+  add constraint attendance_day_type_check
+    check (day_type in ('workday', 'holiday', 'shift'));
 
 -- Bridge columns for the current app tables.
 alter table public.members

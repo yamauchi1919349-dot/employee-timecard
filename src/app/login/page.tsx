@@ -53,7 +53,7 @@ function LoginForm() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-12 text-slate-950">
+    <main data-route="sales-login" className="min-h-screen bg-slate-50 px-4 py-12 text-slate-950">
       <div className="mx-auto flex w-full max-w-md flex-col gap-5">
         <header className="text-center">
           <p className="text-sm font-semibold text-indigo-600">Timecard</p>

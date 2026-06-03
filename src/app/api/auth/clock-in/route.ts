@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { getBusinessDate } from "@/lib/attendance";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
+import { SalesWorkType } from "@/lib/types";
+
+const workTypes: SalesWorkType[] = ["normal", "paid_leave", "half_day", "other"];
 
 export async function POST(request: Request) {
   try {
+    const body = (await request.json().catch(() => ({}))) as {
+      workType?: SalesWorkType;
+      breakMinutes?: number;
+    };
     const profile = await getAuthenticatedProfile(request);
     if (!profile) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
@@ -11,6 +18,13 @@ export async function POST(request: Request) {
 
     const supabase = createSupabaseAdmin();
     const workDate = getBusinessDate();
+    const workType = workTypes.includes(body.workType ?? "normal")
+      ? body.workType ?? "normal"
+      : "normal";
+    const breakMinutes =
+      typeof body.breakMinutes === "number" && body.breakMinutes >= 0 && body.breakMinutes <= 240
+        ? body.breakMinutes
+        : 60;
     const { data: existing, error: existingError } = await supabase
       .from("attendance")
       .select("*")
@@ -30,6 +44,9 @@ export async function POST(request: Request) {
       user_id: profile.user_id,
       profile_id: profile.id,
       store_id: profile.store_id,
+      work_type: workType,
+      break_minutes: breakMinutes,
+      day_type: "workday",
       work_date: workDate,
       clock_in: new Date().toISOString(),
       clock_out: null,
