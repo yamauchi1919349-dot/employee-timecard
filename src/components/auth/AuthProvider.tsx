@@ -46,6 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (payload.profile.user_id !== nextSession.user.id) {
+      setProfile(null);
+      setProfileError("ログイン中ユーザーとプロフィールの user_id が一致しません。");
+      return;
+    }
+
     setProfile(payload.profile);
     setProfileError(null);
   }
@@ -56,12 +62,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (!mounted) return;
       setSession(data.session);
+      setProfile(null);
       await loadProfile(data.session);
       if (mounted) setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      setProfile(null);
+      setProfileError(null);
       setLoading(true);
       loadProfile(nextSession).finally(() => setLoading(false));
     });

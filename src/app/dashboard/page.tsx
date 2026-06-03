@@ -9,7 +9,6 @@ import { SalesTimecardApp } from "@/components/SalesTimecardApp";
 type DashboardPayload = {
   company: { id: string; name: string; plan?: string } | null;
   workDate: string;
-  todayLog: AuthAttendance | null;
   attendance: AuthAttendance[];
 };
 
@@ -35,22 +34,26 @@ export default function DashboardPage() {
 }
 
 function DashboardRouter() {
-  const { profile } = useAuth();
+  const { loading, profile } = useAuth();
+  const role = normalizeRole(profile?.role);
 
-  if (!profile) {
+  if (loading || !profile || !role) {
+    return <DashboardLoading />;
+  }
+
+  if (role === "staff") {
     return (
-      <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
-        <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-6 text-center text-sm font-semibold text-slate-500 shadow-sm">
-          読み込み中...
-        </div>
-      </main>
+      <>
+        <AuthDebugPanel />
+        <SalesTimecardApp />
+      </>
     );
   }
 
-  return profile.role === "staff" ? <SalesTimecardApp /> : <DashboardContent />;
+  return <DashboardContent role={role} />;
 }
 
-function DashboardContent() {
+function DashboardContent({ role }: { role: string }) {
   const { session, profile, signOut } = useAuth();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -72,38 +75,27 @@ function DashboardContent() {
     setMessage(null);
   }
 
-  async function postClock(path: string) {
-    if (!session) return;
-    const response = await fetch(path, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setMessage(payload.message ?? "打刻に失敗しました。");
-      return;
-    }
-    await loadDashboard();
-  }
-
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  const roleLabel = profile?.role === "owner" ? "owner" : profile?.role === "manager" ? "manager" : "staff";
-  const isWorking = Boolean(data?.todayLog?.clock_in && !data.todayLog.clock_out);
+  if (role === "staff") {
+    return <DashboardLoading />;
+  }
 
   return (
     <main data-route="sales-dashboard" className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+        <AuthDebugPanel />
+
         <header className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-indigo-600">{data?.company?.name ?? "Timecard"}</p>
             <h1 className="mt-1 text-3xl font-bold">ダッシュボード</h1>
             <p className="mt-2 text-sm text-slate-500">
-              {profile?.name} / {roleLabel}
+              {profile?.name} / {role}
             </p>
           </div>
           <button
@@ -126,61 +118,38 @@ function DashboardContent() {
           <h2 className="mt-2 text-2xl font-bold">{data?.workDate ?? "-"}</h2>
           {loading ? <p className="mt-4 text-sm text-slate-500">読み込み中...</p> : null}
 
-          {profile?.role === "staff" ? (
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => postClock("/api/auth/clock-in")}
-                disabled={isWorking}
-                className="h-14 rounded-xl bg-indigo-600 text-base font-bold text-white disabled:bg-slate-200 disabled:text-slate-500"
-              >
-                出勤
-              </button>
-              <button
-                type="button"
-                onClick={() => postClock("/api/auth/clock-out")}
-                disabled={!isWorking}
-                className="h-14 rounded-xl bg-slate-950 text-base font-bold text-white disabled:bg-slate-200 disabled:text-slate-500"
-              >
-                退勤
-              </button>
-            </div>
-          ) : (
-            <div className="mt-5 overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm">
-                <thead className="border-b border-slate-200 text-slate-500">
-                  <tr>
-                    <th className="py-2 pr-4">氏名</th>
-                    <th className="py-2 pr-4">出勤</th>
-                    <th className="py-2 pr-4">退勤</th>
-                    <th className="py-2 pr-4">状態</th>
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead className="border-b border-slate-200 text-slate-500">
+                <tr>
+                  <th className="py-2 pr-4">氏名</th>
+                  <th className="py-2 pr-4">出勤</th>
+                  <th className="py-2 pr-4">退勤</th>
+                  <th className="py-2 pr-4">状態</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data?.attendance ?? []).map((row) => (
+                  <tr key={row.id} className="border-b border-slate-100">
+                    <td className="py-3 pr-4 font-semibold">{row.profiles?.name ?? row.user_id}</td>
+                    <td className="py-3 pr-4">{formatTime(row.clock_in)}</td>
+                    <td className="py-3 pr-4">{formatTime(row.clock_out)}</td>
+                    <td className="py-3 pr-4">{row.clock_out ? "退勤済み" : "出勤中"}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {(data?.attendance ?? []).map((row) => (
-                    <tr key={row.id} className="border-b border-slate-100">
-                      <td className="py-3 pr-4 font-semibold">{row.profiles?.name ?? row.user_id}</td>
-                      <td className="py-3 pr-4">{formatTime(row.clock_in)}</td>
-                      <td className="py-3 pr-4">{formatTime(row.clock_out)}</td>
-                      <td className="py-3 pr-4">{row.clock_out ? "退勤済み" : "出勤中"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </section>
 
         <nav className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Link href="/" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
             legacy ホーム
           </Link>
-          {profile?.role !== "staff" ? (
-            <Link href="/admin/staff" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
-              スタッフ管理
-            </Link>
-          ) : null}
-          {profile?.role === "owner" ? (
+          <Link href="/admin/staff" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
+            スタッフ管理
+          </Link>
+          {role === "owner" || role === "admin" ? (
             <Link href="/admin/staff" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
               管理メニュー
             </Link>
@@ -189,6 +158,49 @@ function DashboardContent() {
       </div>
     </main>
   );
+}
+
+function AuthDebugPanel() {
+  const { session, profile } = useAuth();
+
+  return (
+    <section className="mx-auto mt-3 w-full max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs font-semibold leading-6 text-amber-950 shadow-sm">
+      <p className="text-sm font-black">Auth Debug</p>
+      <dl className="mt-2 grid gap-1 break-all">
+        <DebugRow label="session.user.email" value={session?.user.email} />
+        <DebugRow label="session.user.id" value={session?.user.id} />
+        <DebugRow label="profile.email" value={profile?.email} />
+        <DebugRow label="profile.id" value={profile?.id} />
+        <DebugRow label="profile.user_id" value={profile?.user_id} />
+        <DebugRow label="profile.role" value={profile?.role} />
+        <DebugRow label="profile.role.normalized" value={normalizeRole(profile?.role)} />
+        <DebugRow label="profile.company_id" value={profile?.company_id} />
+      </dl>
+    </section>
+  );
+}
+
+function DebugRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <dt className="inline text-amber-700">{label}: </dt>
+      <dd className="inline">{value || "-"}</dd>
+    </div>
+  );
+}
+
+function DashboardLoading() {
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
+      <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-6 text-center text-sm font-semibold text-slate-500 shadow-sm">
+        読み込み中...
+      </div>
+    </main>
+  );
+}
+
+function normalizeRole(role?: string | null) {
+  return role?.trim().toLowerCase() ?? "";
 }
 
 function formatTime(value: string | null) {
