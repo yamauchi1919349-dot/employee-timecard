@@ -43,19 +43,11 @@ export async function GET(request: Request) {
 
     const { data, error } = await query;
     if (error) {
-      console.error("GET /api/time-edit-requests: select failed", {
-        error,
-        profileId: profile.id,
-        userId: profile.user_id,
-        companyId: profile.company_id,
-        role: profile.role,
-      });
       return supabaseErrorResponse("time_edit_requests_select_failed", "打刻修正依頼の取得に失敗しました。", error, 500);
     }
 
     return NextResponse.json({ requests: data ?? [] });
   } catch (error) {
-    console.error("GET /api/time-edit-requests: unexpected error", error);
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "打刻修正依頼の取得に失敗しました。", error: "unexpected_error" },
       { status: 500 },
@@ -64,12 +56,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const logContext = "POST /api/time-edit-requests";
-
   try {
     const profile = await getAuthenticatedProfile(request);
     if (!profile) {
-      console.error(`${logContext}: profile lookup failed`, { reason: "authenticated profile not found" });
       return NextResponse.json(
         { message: "ログイン中のstaff profileを取得できませんでした。", error: "authenticated_profile_not_found" },
         { status: 401 },
@@ -78,12 +67,6 @@ export async function POST(request: Request) {
 
     const role = normalizeRole(profile.role);
     if (role !== "staff") {
-      console.error(`${logContext}: forbidden role`, {
-        profileId: profile.id,
-        userId: profile.user_id,
-        companyId: profile.company_id,
-        role: profile.role,
-      });
       return NextResponse.json({ message: "staffのみ修正依頼を作成できます。", error: "forbidden_role" }, { status: 403 });
     }
 
@@ -106,13 +89,6 @@ export async function POST(request: Request) {
     if (requestedBreakMinutes instanceof NextResponse) return requestedBreakMinutes;
 
     const supabase = createSupabaseAdmin();
-    console.error(`${logContext}: resolved staff profile`, {
-      profileId: profile.id,
-      userId: profile.user_id,
-      companyId: profile.company_id,
-      role: profile.role,
-    });
-
     const { data: attendance, error: attendanceError } = await supabase
       .from("attendance")
       .select("id")
@@ -123,13 +99,6 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (attendanceError) {
-      console.error(`${logContext}: attendance lookup failed`, {
-        error: attendanceError,
-        profileId: profile.id,
-        userId: profile.user_id,
-        companyId: profile.company_id,
-        targetDate,
-      });
       return supabaseErrorResponse("attendance_lookup_failed", "対象日の勤怠確認に失敗しました。", attendanceError);
     }
 
@@ -146,12 +115,6 @@ export async function POST(request: Request) {
       status: "pending",
     };
 
-    console.error(`${logContext}: insert payload`, {
-      ...payload,
-      reason: "[redacted]",
-      user_id: profile.user_id,
-    });
-
     const { data, error } = await supabase
       .from("time_edit_requests")
       .insert(payload)
@@ -159,22 +122,11 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      console.error(`${logContext}: time_edit_requests insert failed`, {
-        error,
-        payload: { ...payload, reason: "[redacted]" },
-        profile: {
-          id: profile.id,
-          user_id: profile.user_id,
-          company_id: profile.company_id,
-          role: profile.role,
-        },
-      });
       return supabaseErrorResponse("time_edit_request_insert_failed", "打刻修正依頼の保存に失敗しました。", error);
     }
 
     return NextResponse.json({ request: data });
   } catch (error) {
-    console.error(`${logContext}: unexpected error`, error);
     return NextResponse.json(
       {
         message: error instanceof Error ? error.message : "打刻修正依頼の送信に失敗しました。",

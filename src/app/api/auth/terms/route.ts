@@ -25,12 +25,6 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) {
-      console.error("PATCH /api/auth/terms: update failed", {
-        error,
-        profileId: profile.id,
-        userId: profile.user_id,
-        companyId: profile.company_id,
-      });
       return NextResponse.json(
         { message: "利用規約への同意状態を保存できませんでした。", detail: error.message },
         { status: 500 },
@@ -39,7 +33,6 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ profile: data });
   } catch (error) {
-    console.error("PATCH /api/auth/terms: unexpected error", error);
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "利用規約への同意状態を保存できませんでした。" },
       { status: 500 },
