@@ -63,6 +63,44 @@ function AdminMonthlyContent() {
     return staff.find((row) => row.id === profileId)?.name ?? "選択中スタッフ";
   }, [profileId, staff]);
 
+  function handleCsvDownload() {
+    if (!payload) return;
+
+    const includePayroll = payload.settings.include_payroll;
+    const headers = [
+      "対象月",
+      "スタッフ名",
+      "日付",
+      "出勤時刻",
+      "退勤時刻",
+      "休憩時間",
+      "労働時間",
+      "残業時間",
+      "勤務区分",
+      ...(includePayroll ? ["給与目安"] : []),
+    ];
+    const rows = payload.rows.map((row) => [
+      payload.selectedMonth,
+      row.staffName,
+      row.workDate,
+      formatTime(row.clockIn),
+      row.clockOut ? formatTime(row.clockOut) : "退勤未打刻",
+      formatMinutes(row.breakMinutes),
+      row.clockOut ? formatMinutes(row.roundedWorkMinutes) : "未確定",
+      row.clockOut ? formatMinutes(row.overtimeMinutes) : "未確定",
+      getWorkTypeLabel(row.workType),
+      ...(includePayroll ? [getPayrollLabel(row)] : []),
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `monthly-attendance-${payload.selectedMonth}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     if (!session || !canView) return;
 
@@ -217,7 +255,17 @@ function AdminMonthlyContent() {
                 {month} / {selectedStaffLabel}
               </p>
             </div>
-            {loading ? <p className="text-sm font-semibold text-slate-500">読み込み中...</p> : null}
+            <div className="flex flex-wrap items-center gap-3">
+              {loading ? <p className="text-sm font-semibold text-slate-500">読み込み中...</p> : null}
+              <button
+                type="button"
+                onClick={handleCsvDownload}
+                disabled={!payload || loading}
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm disabled:bg-slate-200 disabled:text-slate-500"
+              >
+                CSV出力
+              </button>
+            </div>
           </div>
 
           <div className="mt-5 hidden overflow-x-auto md:block">
@@ -404,6 +452,11 @@ function getPayrollLabel(row: MonthlyRow) {
   if (row.payrollSource === "fixed") return row.fixedSalary ? `固定給 ${formatCurrency(row.fixedSalary)}` : "固定給";
   if (row.payrollSource === "hourly") return row.estimatedPayroll !== null ? formatCurrency(row.estimatedPayroll) : "未確定";
   return "未設定";
+}
+
+function escapeCsvCell(value: string) {
+  const escaped = value.replace(/"/g, "\"\"");
+  return /[",\r\n]/.test(escaped) ? `"${escaped}"` : escaped;
 }
 
 function getWorkTypeLabel(workType: string) {
