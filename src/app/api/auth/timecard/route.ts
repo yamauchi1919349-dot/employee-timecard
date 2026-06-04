@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     const start = `${month}-01`;
     const end = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
     const supabase = createSupabaseAdmin();
+    const role = profile.role.trim().toLowerCase();
 
     const { data: company, error: companyError } = await supabase
       .from("companies")
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
       .order("work_date", { ascending: true })
       .order("created_at", { ascending: true });
 
-    if (profile.role === "staff") {
+    if (role === "staff") {
       monthQuery = monthQuery.eq("user_id", profile.user_id);
     }
 
@@ -53,9 +54,9 @@ export async function GET(request: Request) {
       attendance.find((row) => row.work_date === workDate && row.user_id === profile.user_id) ??
       null;
     const ownMonthRows = attendance.filter((row) =>
-      profile.role === "staff" ? true : row.user_id === profile.user_id,
+      role === "staff" ? true : row.user_id === profile.user_id,
     );
-    const summaryRows = profile.role === "staff" ? ownMonthRows : attendance;
+    const summaryRows = role === "staff" ? ownMonthRows : attendance;
     const summary = summarize(summaryRows);
 
     return NextResponse.json({

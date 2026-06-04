@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BASIC_WORK_MINUTES, formatTime } from "@/lib/attendance";
 import { Attendance, SalesWorkType } from "@/lib/types";
 
-type ActiveTab = "home" | "calendar" | "monthly" | "pdf";
+type ActiveTab = "home" | "calendar" | "monthly" | "other";
+type Status = "not_clocked_in" | "working" | "clocked_out";
 
 type SalesAttendance = Attendance & {
   profiles?: { name?: string | null; email?: string | null; role?: string | null } | null;
@@ -34,7 +34,7 @@ const workTypeOptions: { value: SalesWorkType; label: string }[] = [
 ];
 
 const breakOptions = [
-  { value: 60, label: "1時間" },
+  { value: 60, label: "1時間あり" },
   { value: 0, label: "休憩なし" },
   { value: 45, label: "45分" },
   { value: 90, label: "1時間30分" },
@@ -51,12 +51,11 @@ export function SalesTimecardApp() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const isAdmin = profile?.role === "owner" || profile?.role === "manager";
+  const rows = payload?.ownMonthRows ?? [];
   const todayLog = payload?.todayLog ?? null;
   const status = getStatus(todayLog);
   const todayWorkMinutes = getWorkMinutes(todayLog, status === "working" ? now : null);
   const progress = Math.min(100, (todayWorkMinutes / BASIC_WORK_MINUTES) * 100);
-  const visibleRows = profile?.role === "staff" ? payload?.ownMonthRows ?? [] : payload?.attendance ?? [];
 
   const loadData = useCallback(async () => {
     if (!session) return;
@@ -92,16 +91,18 @@ export function SalesTimecardApp() {
   }, [loadData]);
 
   async function clockIn() {
-    if (!session) return;
-    await postClock("/api/auth/clock-in", { workType, breakMinutes });
+    await postJson("/api/auth/clock-in", { workType, breakMinutes });
   }
 
   async function clockOut() {
-    if (!session) return;
-    await postClock("/api/auth/clock-out", { breakMinutes });
+    await postJson("/api/auth/clock-out", { breakMinutes });
   }
 
-  async function postClock(path: string, body: unknown) {
+  async function toggleHoliday(date: string) {
+    await postJson("/api/auth/calendar-day", { date });
+  }
+
+  async function postJson(path: string, body: unknown) {
     if (!session) return;
     setLoading(true);
     setMessage("");
@@ -117,34 +118,26 @@ export function SalesTimecardApp() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
+      if (data.message) setMessage(data.message);
       await loadData();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "打刻に失敗しました。");
+      setMessage(error instanceof Error ? error.message : "処理に失敗しました。");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main data-route="sales-timecard-app" className="min-h-screen bg-slate-50 pb-28 pt-8 text-slate-950">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-4">
-        <header className="flex items-start justify-between gap-3 px-1">
-          <div>
-            <p className="text-sm font-bold text-indigo-600">{payload?.company?.name ?? "Timecard"}</p>
-            <h1 className="mt-1 text-2xl font-black">{profile?.name ?? "読み込み中"}</h1>
-            <p className="mt-1 text-sm font-semibold text-slate-500">{profile?.role}</p>
-          </div>
-          <button
-            type="button"
-            onClick={signOut}
-            className="h-11 rounded-2xl bg-white px-4 text-sm font-bold text-slate-600 shadow-sm"
-          >
-            ログアウト
-          </button>
-        </header>
+    <main data-route="sales-timecard-app" className="min-h-screen bg-white pb-28 pt-8 text-[#0F172A]">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-5">
+        <AppHeader
+          companyName={payload?.company?.name ?? "Timecard"}
+          userName={profile?.name ?? ""}
+          onRefresh={loadData}
+        />
 
         {message ? (
-          <p className="rounded-2xl bg-amber-50 p-4 text-sm font-bold text-amber-800 shadow-sm">
+          <p className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white shadow-sm">
             {message}
           </p>
         ) : null}
@@ -159,8 +152,6 @@ export function SalesTimecardApp() {
             workType={workType}
             breakMinutes={breakMinutes}
             loading={loading}
-            isAdmin={isAdmin}
-            attendance={payload?.attendance ?? []}
             onWorkTypeChange={setWorkType}
             onBreakMinutesChange={setBreakMinutes}
             onClockIn={clockIn}
@@ -171,27 +162,52 @@ export function SalesTimecardApp() {
         {activeTab === "calendar" ? (
           <CalendarTab
             selectedMonth={selectedMonth}
-            rows={visibleRows}
+            rows={rows}
+            loading={loading}
             onMonthChange={setSelectedMonth}
+            onToggleHoliday={toggleHoliday}
           />
         ) : null}
 
         {activeTab === "monthly" ? (
           <MonthlyTab
             selectedMonth={selectedMonth}
-            rows={visibleRows}
+            rows={rows}
             summary={payload?.summary ?? { totalWorkMinutes: 0, overtimeMinutes: 0, workedDays: 0 }}
             onMonthChange={setSelectedMonth}
           />
         ) : null}
 
-        {activeTab === "pdf" && isAdmin ? (
-          <PdfTab selectedMonth={selectedMonth} onMonthChange={setSelectedMonth} />
-        ) : null}
+        {activeTab === "other" ? <OtherTab onSignOut={signOut} /> : null}
       </div>
 
-      <BottomTabs activeTab={activeTab} isAdmin={isAdmin} onChange={setActiveTab} />
+      <BottomTabs activeTab={activeTab} onChange={setActiveTab} />
     </main>
+  );
+}
+
+function AppHeader({
+  companyName,
+  userName,
+  onRefresh,
+}: {
+  companyName: string;
+  userName: string;
+  onRefresh: () => void;
+}) {
+  return (
+    <header className="relative min-h-16 px-1">
+      <p className="absolute left-0 top-0 text-sm font-black text-[#4F46E5]">{companyName}</p>
+      <p className="pt-8 text-center text-sm font-black text-slate-500">{userName}</p>
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-full bg-white text-[#6366F1] shadow-sm ring-1 ring-slate-100"
+        aria-label="更新"
+      >
+        ↻
+      </button>
+    </header>
   );
 }
 
@@ -204,138 +220,113 @@ function HomeTab({
   workType,
   breakMinutes,
   loading,
-  isAdmin,
-  attendance,
   onWorkTypeChange,
   onBreakMinutesChange,
   onClockIn,
   onClockOut,
 }: {
   now: Date;
-  status: ReturnType<typeof getStatus>;
+  status: Status;
   todayLog: SalesAttendance | null;
   todayWorkMinutes: number;
   progress: number;
   workType: SalesWorkType;
   breakMinutes: number;
   loading: boolean;
-  isAdmin: boolean;
-  attendance: SalesAttendance[];
   onWorkTypeChange: (value: SalesWorkType) => void;
   onBreakMinutesChange: (value: number) => void;
   onClockIn: () => void;
   onClockOut: () => void;
 }) {
+  const action = getPrimaryAction(status);
+
   return (
     <>
-      <section className="py-5 text-center">
-        <p className="text-6xl font-black tracking-normal text-slate-950">{formatClock(now)}</p>
-        <p className="mt-3 text-lg font-bold text-slate-500">{formatDate(now)}</p>
+      <section className="text-center">
+        <p className="text-6xl font-black tracking-normal">{formatClock(now)}</p>
+        <p className="mt-3 text-xl font-black text-slate-500">{formatDate(now)}</p>
       </section>
 
-      <section className="rounded-2xl bg-white p-6 shadow-sm">
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <span className={`h-3 w-3 rounded-full ${status === "working" ? "bg-indigo-500" : "bg-slate-300"}`} />
+              <span className={`h-3 w-3 rounded-full ${status === "not_clocked_in" ? "bg-slate-300" : "bg-[#6366F1]"}`} />
               <h2 className="text-2xl font-black">{getStatusLabel(status)}</h2>
             </div>
-            <p className="mt-5 text-sm font-bold text-slate-500">
-              出勤 {formatTime(todayLog?.clock_in ?? null)}
-            </p>
-            <p className="mt-2 text-sm font-bold text-slate-500">
-              退勤 {formatTime(todayLog?.clock_out ?? null)}
+            <p className="mt-5 text-base font-black">出勤 {formatTime(todayLog?.clock_in ?? null)}</p>
+          </div>
+          <div className="grid h-14 w-14 place-items-center rounded-full bg-[#EEF2FF] text-[#6366F1]">
+            <IconClock />
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-black text-slate-500">本日の勤務時間</p>
+            <p className="mt-4 text-4xl font-black">{formatDuration(todayWorkMinutes)}</p>
+            <p className="mt-3 text-base font-black text-slate-500">
+              {status === "working" ? "リアルタイムで更新中" : "本日の記録から集計"}
             </p>
           </div>
           <ProgressRing progress={progress} label={formatDuration(todayWorkMinutes)} />
         </div>
       </section>
 
-      <section className="rounded-2xl bg-white p-5 shadow-sm">
-        <p className="text-sm font-bold text-slate-500">本日の勤務時間</p>
-        <p className="mt-2 text-4xl font-black">{formatDuration(todayWorkMinutes)}</p>
+      <button
+        type="button"
+        onClick={action.type === "clock_in" ? onClockIn : onClockOut}
+        disabled={loading || action.disabled}
+        className={`flex h-20 items-center justify-between rounded-2xl px-5 text-left text-white shadow-sm transition active:scale-95 disabled:bg-slate-200 disabled:text-slate-500 ${action.className}`}
+      >
+        <span className="flex items-center gap-4">
+          <span className="grid h-12 w-12 place-items-center rounded-full border-2 border-white/80">
+            {action.icon}
+          </span>
+          <span>
+            <span className="block text-2xl font-black">{action.label}</span>
+            <span className="mt-1 block text-sm font-bold opacity-90">{action.subLabel}</span>
+          </span>
+        </span>
+        <span className="text-3xl font-light">›</span>
+      </button>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <div className="grid grid-cols-2 gap-4">
+          <label className="text-sm font-black text-slate-500">
+            <span className="flex items-center gap-2 text-[#6B7280]">▣ 勤務区分</span>
+            <select
+              value={workType}
+              disabled={status !== "not_clocked_in"}
+              onChange={(event) => onWorkTypeChange(event.target.value as SalesWorkType)}
+              className="mt-3 h-12 w-full rounded-xl border border-slate-100 bg-slate-50 px-3 text-base font-black text-slate-700"
+            >
+              {workTypeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-black text-slate-500">
+            <span className="flex items-center gap-2 text-[#6B7280]">☕ 休憩設定</span>
+            <select
+              value={breakMinutes}
+              disabled={status === "clocked_out"}
+              onChange={(event) => onBreakMinutesChange(Number(event.target.value))}
+              className="mt-3 h-12 w-full rounded-xl border border-orange-100 bg-orange-400 px-3 text-base font-black text-white"
+            >
+              {breakOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </section>
-
-      {!isAdmin ? (
-        <>
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm font-bold text-slate-500">
-                勤務区分
-                <select
-                  value={workType}
-                  disabled={status !== "not_clocked_in"}
-                  onChange={(event) => onWorkTypeChange(event.target.value as SalesWorkType)}
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base font-bold"
-                >
-                  {workTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm font-bold text-slate-500">
-                休憩設定
-                <select
-                  value={breakMinutes}
-                  disabled={status === "clocked_out"}
-                  onChange={(event) => onBreakMinutesChange(Number(event.target.value))}
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-base font-bold"
-                >
-                  {breakOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </section>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={onClockIn}
-              disabled={loading || status !== "not_clocked_in"}
-              className="h-16 rounded-2xl bg-indigo-600 text-lg font-black text-white shadow-sm disabled:bg-slate-200 disabled:text-slate-500"
-            >
-              出勤
-            </button>
-            <button
-              type="button"
-              onClick={onClockOut}
-              disabled={loading || status !== "working"}
-              className="h-16 rounded-2xl bg-orange-500 text-lg font-black text-white shadow-sm disabled:bg-slate-200 disabled:text-slate-500"
-            >
-              退勤
-            </button>
-          </div>
-        </>
-      ) : (
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black">本日の出勤者</h2>
-            <Link href="/admin/staff" className="text-sm font-bold text-indigo-600">
-              スタッフ管理
-            </Link>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {attendance.length ? (
-              attendance.map((row) => (
-                <div key={row.id} className="rounded-xl bg-slate-50 p-3">
-                  <p className="font-bold">{row.profiles?.name ?? row.user_id}</p>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {formatTime(row.clock_in)} - {formatTime(row.clock_out)}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm font-bold text-slate-400">本日の出勤者はまだいません。</p>
-            )}
-          </div>
-        </section>
-      )}
     </>
   );
 }
@@ -343,11 +334,15 @@ function HomeTab({
 function CalendarTab({
   selectedMonth,
   rows,
+  loading,
   onMonthChange,
+  onToggleHoliday,
 }: {
   selectedMonth: string;
   rows: SalesAttendance[];
+  loading: boolean;
   onMonthChange: (month: string) => void;
+  onToggleHoliday: (date: string) => void;
 }) {
   const rowByDate = useMemo(
     () =>
@@ -360,40 +355,49 @@ function CalendarTab({
 
   return (
     <>
-      <ScreenHeader title="カレンダー" subtitle="月間の出勤・休日・シフト" />
+      <ScreenHeader title="カレンダー" subtitle={formatMonth(selectedMonth)} />
       <MonthStepper selectedMonth={selectedMonth} onMonthChange={onMonthChange} />
-      <section className="rounded-2xl bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-7 text-center text-sm font-black text-slate-400">
-          {["日", "月", "火", "水", "木", "金", "土"].map((day) => (
-            <span key={day}>{day}</span>
+      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+        <div className="grid grid-cols-7 text-center text-sm font-black">
+          {["日", "月", "火", "水", "木", "金", "土"].map((day, index) => (
+            <span key={day} className={index === 0 ? "text-rose-500" : index === 6 ? "text-blue-500" : "text-slate-500"}>
+              {day}
+            </span>
           ))}
         </div>
-        <div className="mt-3 grid grid-cols-7 gap-1">
+        <div className="mt-4 grid grid-cols-7 gap-1">
           {buildCalendarCells(selectedMonth).map((cell) => {
             const dayRows = rowByDate[cell.dateKey] ?? [];
             const hasWork = dayRows.some((row) => row.clock_in);
-            const isHoliday = dayRows.some((row) => row.day_type === "holiday") || cell.weekend;
+            const isSavedHoliday = dayRows.some((row) => row.day_type === "holiday");
+            const isHoliday = isSavedHoliday || cell.weekend;
             const isToday = cell.dateKey === getDateKey(new Date());
 
             return (
-              <div
+              <button
                 key={cell.dateKey}
-                className={`min-h-16 rounded-xl p-1 text-center ${
-                  cell.inMonth ? "bg-slate-50" : "bg-transparent text-slate-300"
-                } ${isHoliday && cell.inMonth ? "bg-rose-50 text-rose-600" : ""} ${
-                  isToday ? "ring-2 ring-indigo-500" : ""
+                type="button"
+                disabled={loading || !cell.inMonth}
+                onClick={() => onToggleHoliday(cell.dateKey)}
+                className={`relative grid min-h-14 place-items-center rounded-full text-sm font-black transition active:scale-95 disabled:opacity-40 ${
+                  cell.inMonth ? "text-slate-900" : "text-slate-300"
+                } ${isSavedHoliday ? "bg-rose-400 text-white" : ""} ${
+                  isToday ? "ring-2 ring-[#6366F1]" : ""
                 }`}
               >
-                <p className="text-sm font-black">{cell.day}</p>
-                {hasWork ? <p className="mt-1 text-[11px] font-black text-indigo-600">出</p> : null}
-                {isHoliday && cell.inMonth ? <p className="mt-1 text-[11px] font-black">休</p> : null}
-                {dayRows.some((row) => row.day_type === "shift") ? (
-                  <p className="mt-1 text-[11px] font-black text-emerald-600">シ</p>
-                ) : null}
-              </div>
+                {cell.day}
+                <span className="absolute bottom-1 flex gap-0.5">
+                  {hasWork ? <span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> : null}
+                  {isHoliday ? <span className={`h-1.5 w-1.5 rounded-full ${isSavedHoliday ? "bg-white" : "bg-slate-300"}`} /> : null}
+                  {dayRows.some((row) => row.work_type === "paid_leave" || row.work_type === "other") ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+                  ) : null}
+                </span>
+              </button>
             );
           })}
         </div>
+        <CalendarLegend />
       </section>
     </>
   );
@@ -425,7 +429,7 @@ function MonthlyTab({
             const workMinutes = getWorkMinutes(row, null);
             const overtimeMinutes = Math.max(0, workMinutes - BASIC_WORK_MINUTES);
             return (
-              <article key={row.id} className="rounded-2xl bg-white p-4 shadow-sm">
+              <article key={row.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-lg font-black">{formatShortDate(row.work_date)}</p>
@@ -456,22 +460,18 @@ function MonthlyTab({
   );
 }
 
-function PdfTab({
-  selectedMonth,
-  onMonthChange,
-}: {
-  selectedMonth: string;
-  onMonthChange: (month: string) => void;
-}) {
+function OtherTab({ onSignOut }: { onSignOut: () => void }) {
   return (
     <>
-      <ScreenHeader title="PDF" subtitle="管理者向け出力" />
-      <MonthStepper selectedMonth={selectedMonth} onMonthChange={onMonthChange} />
-      <section className="rounded-2xl bg-white p-5 shadow-sm">
-        <h2 className="text-xl font-black">PDF出力</h2>
-        <p className="mt-3 text-sm leading-6 text-slate-500">
-          販売版PDFはログイン中の企業データだけを対象にする形へ移行中です。
-        </p>
+      <ScreenHeader title="その他" subtitle="アカウント" />
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="h-12 w-full rounded-xl bg-slate-950 text-base font-black text-white"
+        >
+          ログアウト
+        </button>
       </section>
     </>
   );
@@ -479,23 +479,21 @@ function PdfTab({
 
 function BottomTabs({
   activeTab,
-  isAdmin,
   onChange,
 }: {
   activeTab: ActiveTab;
-  isAdmin: boolean;
   onChange: (tab: ActiveTab) => void;
 }) {
   const tabs: { id: ActiveTab; label: string; icon: string }[] = [
     { id: "home", label: "ホーム", icon: "⌂" },
     { id: "calendar", label: "カレンダー", icon: "□" },
     { id: "monthly", label: "月次", icon: "▤" },
-    ...(isAdmin ? [{ id: "pdf" as ActiveTab, label: "PDF", icon: "▧" }] : []),
+    { id: "other", label: "その他", icon: "▧" },
   ];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white/95 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 shadow-sm backdrop-blur">
-      <div className="mx-auto grid max-w-md gap-2" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
         {tabs.map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -503,8 +501,8 @@ function BottomTabs({
               key={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
-              className={`h-16 rounded-2xl text-sm font-black ${
-                active ? "bg-indigo-50 text-indigo-600 shadow-sm" : "text-slate-500"
+              className={`h-16 rounded-2xl text-xs font-black ${
+                active ? "bg-indigo-50 text-[#6366F1] shadow-sm" : "text-slate-500"
               }`}
             >
               <span className="block text-xl">{tab.icon}</span>
@@ -520,7 +518,7 @@ function BottomTabs({
 function ScreenHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <header className="px-1">
-      <h2 className="text-3xl font-black">{title}</h2>
+      <h2 className="text-2xl font-black">{title}</h2>
       <p className="mt-1 text-sm font-bold text-slate-500">{subtitle}</p>
     </header>
   );
@@ -534,12 +532,12 @@ function MonthStepper({
   onMonthChange: (month: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-[48px_1fr_48px] items-center rounded-2xl bg-white p-2 shadow-sm">
-      <button type="button" className="h-12 rounded-xl text-xl font-black text-indigo-600" onClick={() => onMonthChange(shiftMonth(selectedMonth, -1))}>
+    <div className="grid grid-cols-[48px_1fr_48px] items-center rounded-2xl bg-white p-2 shadow-sm ring-1 ring-slate-100">
+      <button type="button" className="h-12 rounded-xl text-xl font-black text-[#6366F1]" onClick={() => onMonthChange(shiftMonth(selectedMonth, -1))}>
         ‹
       </button>
-      <p className="text-center text-xl font-black">{formatMonth(selectedMonth)}</p>
-      <button type="button" className="h-12 rounded-xl text-xl font-black text-indigo-600" onClick={() => onMonthChange(shiftMonth(selectedMonth, 1))}>
+      <p className="text-center text-lg font-black">{formatMonth(selectedMonth)}</p>
+      <button type="button" className="h-12 rounded-xl text-xl font-black text-[#6366F1]" onClick={() => onMonthChange(shiftMonth(selectedMonth, 1))}>
         ›
       </button>
     </div>
@@ -548,7 +546,7 @@ function MonthStepper({
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm">
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
       <p className="text-xs font-bold text-slate-500">{label}</p>
       <p className="mt-2 text-lg font-black">{value}</p>
     </div>
@@ -563,7 +561,7 @@ function ProgressRing({ progress, label }: { progress: number; label: string }) 
   return (
     <div className="relative grid h-24 w-24 place-items-center">
       <svg className="-rotate-90 h-24 w-24" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={radius} fill="none" strokeWidth="12" className="stroke-indigo-50" />
+        <circle cx="60" cy="60" r={radius} fill="none" strokeWidth="12" className="stroke-[#EEF2FF]" />
         <circle
           cx="60"
           cy="60"
@@ -573,21 +571,75 @@ function ProgressRing({ progress, label }: { progress: number; label: string }) 
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className="stroke-indigo-600"
+          className="stroke-[#6366F1]"
         />
       </svg>
-      <p className="absolute text-center text-sm font-black">{label}</p>
+      <div className="absolute text-center">
+        <p className="text-xs font-black text-slate-500">8h</p>
+        <p className="text-xs font-black">{label}</p>
+      </div>
     </div>
   );
 }
 
-function getStatus(row: SalesAttendance | null) {
+function CalendarLegend() {
+  const items = [
+    ["bg-blue-500", "出勤日"],
+    ["bg-rose-400", "休日"],
+    ["bg-slate-300", "欠勤"],
+    ["bg-orange-400", "有給・その他"],
+  ];
+
+  return (
+    <div className="mt-6 grid grid-cols-2 gap-2 text-xs font-bold text-slate-500">
+      {items.map(([color, label]) => (
+        <div key={label} className="flex items-center justify-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+          {label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function getPrimaryAction(status: Status) {
+  if (status === "not_clocked_in") {
+    return {
+      type: "clock_in" as const,
+      disabled: false,
+      label: "出勤",
+      subLabel: "勤務を開始します",
+      icon: "▶",
+      className: "bg-gradient-to-r from-[#4F46E5] to-[#8B5CF6]",
+    };
+  }
+  if (status === "working") {
+    return {
+      type: "clock_out" as const,
+      disabled: false,
+      label: "退勤",
+      subLabel: "退勤時刻を確認します",
+      icon: "□",
+      className: "bg-gradient-to-r from-[#FF7A1A] to-[#F97316]",
+    };
+  }
+  return {
+    type: "clock_out" as const,
+    disabled: true,
+    label: "本日は完了",
+    subLabel: "おつかれさまでした",
+    icon: "✓",
+    className: "bg-gradient-to-r from-[#4F46E5] to-[#8B5CF6]",
+  };
+}
+
+function getStatus(row: SalesAttendance | null): Status {
   if (!row?.clock_in) return "not_clocked_in";
   if (!row.clock_out) return "working";
   return "clocked_out";
 }
 
-function getStatusLabel(status: ReturnType<typeof getStatus>) {
+function getStatusLabel(status: Status) {
   if (status === "working") return "勤務中";
   if (status === "clocked_out") return "退勤済";
   return "未出勤";
@@ -609,6 +661,15 @@ function getBreakLabel(minutes: number) {
   return breakOptions.find((option) => option.value === minutes)?.label ?? `${minutes}分`;
 }
 
+function IconClock() {
+  return (
+    <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function formatClock(date: Date) {
   return date.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
@@ -626,6 +687,8 @@ function formatDuration(minutes: number) {
   const safe = Math.max(0, Math.floor(minutes));
   const hours = Math.floor(safe / 60);
   const rest = safe % 60;
+  if (hours <= 0) return `${rest}分`;
+  if (rest <= 0) return `${hours}時間`;
   return `${hours}時間${rest}分`;
 }
 
