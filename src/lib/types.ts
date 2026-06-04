@@ -3,12 +3,25 @@ export type SalesWorkType = "normal" | "paid_leave" | "half_day" | "other";
 export type AttendanceStatus = "not_clocked_in" | "working" | "clocked_out";
 export type CalendarDayType = "workday" | "holiday";
 export type SalesDayType = "workday" | "holiday" | "shift";
+export type WorkRoundingMinutes = 0 | 5 | 10 | 15 | 30;
+export type RoundingMethod = "floor" | "ceil" | "nearest";
 
 export type Company = {
   id: string;
   name: string;
   plan?: string;
+  work_rounding_minutes: WorkRoundingMinutes;
+  rounding_method: RoundingMethod;
+  overtime_threshold_minutes: number;
+  include_payroll: boolean;
   created_at: string;
+};
+
+export type CompanySettings = {
+  work_rounding_minutes: WorkRoundingMinutes;
+  rounding_method: RoundingMethod;
+  overtime_threshold_minutes: number;
+  include_payroll: boolean;
 };
 
 export type TenantRole = "owner" | "manager" | "staff" | "admin";

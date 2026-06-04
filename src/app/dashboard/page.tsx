@@ -142,11 +142,9 @@ function DashboardContent({ role }: { role: string }) {
           <Link href="/admin/staff" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
             スタッフ管理
           </Link>
-          {role === "owner" || role === "admin" ? (
-            <Link href="/admin/staff" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
-              管理メニュー
-            </Link>
-          ) : null}
+          <Link href="/admin/settings" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
+            管理設定
+          </Link>
         </nav>
       </div>
     </main>

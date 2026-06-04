@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { Profile } from "@/lib/types";
+import { CompanySettings, Profile, RoundingMethod, WorkRoundingMinutes } from "@/lib/types";
 
 type MonthlyPayload = {
   selectedMonth: string;
@@ -14,7 +14,9 @@ type MonthlyPayload = {
     holidayDays: number;
     totalWorkMinutes: number;
     overtimeMinutes: number;
+    estimatedPayrollTotal: number | null;
   };
+  settings: CompanySettings;
   rows: MonthlyRow[];
 };
 
@@ -24,6 +26,8 @@ type MonthlyRow = {
   userId: string;
   staffName: string;
   staffEmail: string | null;
+  hourlyWage: number | null;
+  fixedSalary: number | null;
   workDate: string;
   clockIn: string | null;
   clockOut: string | null;
@@ -31,6 +35,8 @@ type MonthlyRow = {
   breakMinutes: number;
   roundedWorkMinutes: number;
   overtimeMinutes: number;
+  payrollSource: "hourly" | "fixed" | "none";
+  estimatedPayroll: number | null;
 };
 
 export default function AdminMonthlyPage() {
@@ -168,12 +174,40 @@ function AdminMonthlyContent() {
           </div>
         ) : null}
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className={`grid gap-3 sm:grid-cols-2 ${payload?.settings.include_payroll ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
           <SummaryCard label="出勤日数" value={`${payload?.summary.workedDays ?? 0}日`} />
           <SummaryCard label="休日" value={`${payload?.summary.holidayDays ?? 0}日`} />
           <SummaryCard label="総労働時間" value={formatMinutes(payload?.summary.totalWorkMinutes ?? 0)} />
           <SummaryCard label="残業時間" value={formatMinutes(payload?.summary.overtimeMinutes ?? 0)} />
+          {payload?.settings.include_payroll ? (
+            <SummaryCard label="給与目安" value={formatCurrency(payload.summary.estimatedPayrollTotal ?? 0)} />
+          ) : null}
         </section>
+
+        {payload?.settings ? (
+          <section className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-xl font-bold">反映中の管理設定</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  集計値のみ設定を反映します。出勤・退勤時刻は実打刻のままです。
+                </p>
+              </div>
+              <Link
+                href="/admin/settings"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm"
+              >
+                管理設定
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <SettingChip label="計算ルール" value={getRoundingRuleLabel(payload.settings.work_rounding_minutes)} />
+              <SettingChip label="丸め方式" value={getRoundingMethodLabel(payload.settings.rounding_method)} />
+              <SettingChip label="残業開始" value={`${formatHours(payload.settings.overtime_threshold_minutes)}超`} />
+              <SettingChip label="給与計算" value={payload.settings.include_payroll ? "含める" : "含めない"} />
+            </div>
+          </section>
+        ) : null}
 
         <section className="rounded-2xl bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -187,7 +221,7 @@ function AdminMonthlyContent() {
           </div>
 
           <div className="mt-5 hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="border-b border-slate-200 text-slate-500">
                 <tr>
                   <th className="py-2 pr-4">日付</th>
@@ -198,6 +232,7 @@ function AdminMonthlyContent() {
                   <th className="py-2 pr-4">休憩</th>
                   <th className="py-2 pr-4">労働時間</th>
                   <th className="py-2 pr-4">残業</th>
+                  {payload?.settings.include_payroll ? <th className="py-2 pr-4">給与目安</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -211,6 +246,9 @@ function AdminMonthlyContent() {
                     <td className="py-3 pr-4">{formatMinutes(row.breakMinutes)}</td>
                     <td className="py-3 pr-4">{row.clockOut ? formatMinutes(row.roundedWorkMinutes) : "未確定"}</td>
                     <td className="py-3 pr-4">{row.clockOut ? formatMinutes(row.overtimeMinutes) : "未確定"}</td>
+                    {payload?.settings.include_payroll ? (
+                      <td className="py-3 pr-4">{getPayrollLabel(row)}</td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>
@@ -245,6 +283,9 @@ function AdminMonthlyContent() {
                     label="残業"
                     value={row.clockOut ? formatMinutes(row.overtimeMinutes) : "未確定"}
                   />
+                  {payload?.settings.include_payroll ? (
+                    <RecordMetric label="給与目安" value={getPayrollLabel(row)} />
+                  ) : null}
                 </div>
               </article>
             ))}
@@ -266,6 +307,15 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl bg-white p-5 shadow-sm">
       <p className="text-sm font-semibold text-slate-500">{label}</p>
       <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function SettingChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 p-4">
+      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="mt-1 font-bold text-slate-950">{value}</p>
     </div>
   );
 }
@@ -315,6 +365,45 @@ function formatMinutes(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return `${hours}時間${String(rest).padStart(2, "0")}分`;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("ja-JP", {
+    style: "currency",
+    currency: "JPY",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatHours(minutes: number) {
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours}時間` : `${hours.toFixed(1)}時間`;
+}
+
+function getRoundingRuleLabel(value: WorkRoundingMinutes) {
+  const labels: Record<WorkRoundingMinutes, string> = {
+    0: "打刻通り",
+    5: "5分丸め",
+    10: "10分丸め",
+    15: "15分丸め",
+    30: "30分丸め",
+  };
+  return labels[value];
+}
+
+function getRoundingMethodLabel(value: RoundingMethod) {
+  const labels: Record<RoundingMethod, string> = {
+    floor: "切り捨て",
+    ceil: "切り上げ",
+    nearest: "四捨五入",
+  };
+  return labels[value];
+}
+
+function getPayrollLabel(row: MonthlyRow) {
+  if (row.payrollSource === "fixed") return row.fixedSalary ? `固定給 ${formatCurrency(row.fixedSalary)}` : "固定給";
+  if (row.payrollSource === "hourly") return row.estimatedPayroll !== null ? formatCurrency(row.estimatedPayroll) : "未確定";
+  return "未設定";
 }
 
 function getWorkTypeLabel(workType: string) {

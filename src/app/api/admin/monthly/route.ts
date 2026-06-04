@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { BASIC_WORK_MINUTES, APP_TIME_ZONE } from "@/lib/attendance";
+import { APP_TIME_ZONE } from "@/lib/attendance";
+import { normalizeCompanySettings, roundDateToInterval } from "@/lib/admin-settings";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
-import { Attendance } from "@/lib/types";
+import { Attendance, CompanySettings } from "@/lib/types";
 
 type AttendanceWithProfile = Attendance & {
   profiles?: {
@@ -9,8 +10,12 @@ type AttendanceWithProfile = Attendance & {
     name?: string | null;
     email?: string | null;
     role?: string | null;
+    hourly_wage?: number | null;
+    fixed_salary?: number | null;
   } | null;
 };
+
+type MonthlyRow = ReturnType<typeof toMonthlyRow>;
 
 export async function GET(request: Request) {
   try {
@@ -37,6 +42,15 @@ export async function GET(request: Request) {
     }
 
     const supabase = createSupabaseAdmin();
+    const { data: companySettingsData, error: companySettingsError } = await supabase
+      .from("companies")
+      .select("work_rounding_minutes,rounding_method,overtime_threshold_minutes,include_payroll")
+      .eq("id", profile.company_id)
+      .maybeSingle();
+
+    if (companySettingsError) throw companySettingsError;
+    const settings = normalizeCompanySettings(companySettingsData);
+
     let selectedProfileUserId = "";
 
     if (profileId) {
@@ -59,7 +73,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("attendance")
-      .select("*, profiles(id,name,email,role)")
+      .select("*, profiles(id,name,email,role,hourly_wage,fixed_salary)")
       .eq("company_id", profile.company_id)
       .gte("work_date", monthRange.start)
       .lte("work_date", monthRange.end)
@@ -74,7 +88,8 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    const rows = ((data ?? []) as AttendanceWithProfile[]).map(toMonthlyRow);
+    const rows = ((data ?? []) as AttendanceWithProfile[]).map((row) => toMonthlyRow(row, settings));
+    const estimatedPayrollTotal = settings.include_payroll ? calculateEstimatedPayrollTotal(rows) : null;
     const summary = rows.reduce(
       (current, row) => {
         current.workedDays += 1;
@@ -88,12 +103,14 @@ export async function GET(request: Request) {
         holidayDays: 0,
         totalWorkMinutes: 0,
         overtimeMinutes: 0,
+        estimatedPayrollTotal,
       },
     );
 
     return NextResponse.json({
       selectedMonth: month,
       selectedProfileId: profileId || null,
+      settings,
       summary,
       rows,
     });
@@ -108,30 +125,63 @@ export async function GET(request: Request) {
   }
 }
 
-function toMonthlyRow(row: AttendanceWithProfile) {
-  const roundedWorkMinutes = getRoundedWorkMinutes(row);
+function toMonthlyRow(row: AttendanceWithProfile, settings: CompanySettings) {
+  const roundedWorkMinutes = getRoundedWorkMinutes(row, settings);
+  const hourlyWage = row.profiles?.hourly_wage ?? null;
+  const fixedSalary = row.profiles?.fixed_salary ?? null;
+  const payrollSource = fixedSalary && fixedSalary > 0 ? "fixed" : hourlyWage && hourlyWage > 0 ? "hourly" : "none";
+
   return {
     id: row.id,
     profileId: row.profile_id,
     userId: row.user_id,
     staffName: row.profiles?.name ?? "未登録スタッフ",
     staffEmail: row.profiles?.email ?? null,
+    hourlyWage,
+    fixedSalary,
     workDate: row.work_date,
     clockIn: row.clock_in,
     clockOut: row.clock_out,
     workType: row.work_type,
     breakMinutes: row.break_minutes ?? 0,
     roundedWorkMinutes,
-    overtimeMinutes: Math.max(0, roundedWorkMinutes - BASIC_WORK_MINUTES),
+    overtimeMinutes: Math.max(0, roundedWorkMinutes - settings.overtime_threshold_minutes),
+    payrollSource,
+    estimatedPayroll:
+      payrollSource === "hourly" && hourlyWage ? Math.round((roundedWorkMinutes / 60) * hourlyWage) : null,
   };
 }
 
-function getRoundedWorkMinutes(row: Attendance) {
+function getRoundedWorkMinutes(row: Attendance, settings: CompanySettings) {
   if (!row.clock_in || !row.clock_out) return 0;
-  const roundedIn = ceilToInterval(new Date(row.clock_in), 15);
-  const roundedOut = floorToInterval(new Date(row.clock_out), 15);
+  const roundedIn = roundDateToInterval(
+    new Date(row.clock_in),
+    settings.work_rounding_minutes,
+    settings.rounding_method,
+  );
+  const roundedOut = roundDateToInterval(
+    new Date(row.clock_out),
+    settings.work_rounding_minutes,
+    settings.rounding_method,
+  );
   const rawMinutes = Math.floor((roundedOut.getTime() - roundedIn.getTime()) / 60000);
   return Math.max(0, rawMinutes - (row.break_minutes ?? 0));
+}
+
+function calculateEstimatedPayrollTotal(rows: MonthlyRow[]) {
+  const fixedSalaryProfileIds = new Set<string>();
+  return rows.reduce((total, row) => {
+    if (row.payrollSource === "fixed" && row.fixedSalary && row.profileId && !fixedSalaryProfileIds.has(row.profileId)) {
+      fixedSalaryProfileIds.add(row.profileId);
+      return total + row.fixedSalary;
+    }
+
+    if (row.payrollSource === "hourly" && row.estimatedPayroll) {
+      return total + row.estimatedPayroll;
+    }
+
+    return total;
+  }, 0);
 }
 
 function getMonthRange(month: string) {
@@ -155,14 +205,4 @@ function getCurrentMonth() {
   const year = parts.find((part) => part.type === "year")?.value;
   const month = parts.find((part) => part.type === "month")?.value;
   return `${year}-${month}`;
-}
-
-function ceilToInterval(date: Date, minutes: number) {
-  const intervalMs = minutes * 60 * 1000;
-  return new Date(Math.ceil(date.getTime() / intervalMs) * intervalMs);
-}
-
-function floorToInterval(date: Date, minutes: number) {
-  const intervalMs = minutes * 60 * 1000;
-  return new Date(Math.floor(date.getTime() / intervalMs) * intervalMs);
 }
