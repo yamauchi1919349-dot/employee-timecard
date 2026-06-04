@@ -108,7 +108,7 @@ function DashboardContent({ role }: { role: string }) {
           </div>
         ) : null}
 
-        <nav className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <nav className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <AdminMenuCard
             href="/admin/monthly"
             label="月次集計"
@@ -124,6 +124,13 @@ function DashboardContent({ role }: { role: string }) {
             label="管理設定"
             description="勤怠ルール、残業開始時間、給与計算表示を設定します。"
           />
+          {role === "owner" ? (
+            <AdminMenuCard
+              href="/admin/time-edit-requests"
+              label="打刻修正"
+              description="修正依頼の承認・却下と、ownerによる直接修正を行います。"
+            />
+          ) : null}
         </nav>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">

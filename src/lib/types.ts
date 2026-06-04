@@ -5,6 +5,9 @@ export type CalendarDayType = "workday" | "holiday";
 export type SalesDayType = "workday" | "holiday" | "shift";
 export type WorkRoundingMinutes = 0 | 5 | 10 | 15 | 30;
 export type RoundingMethod = "floor" | "ceil" | "nearest";
+export type TimeEditRequestType = "missing_clock_in" | "missing_clock_out" | "wrong_time" | "break_fix" | "other";
+export type TimeEditRequestStatus = "pending" | "approved" | "rejected";
+export type TimeEditSource = "request" | "direct";
 
 export type Company = {
   id: string;
@@ -64,6 +67,60 @@ export type Attendance = {
   work_date: string;
   created_at: string;
   updated_at: string;
+};
+
+export type TimeEditRequest = {
+  id: string;
+  company_id: string;
+  profile_id: string;
+  attendance_id: string | null;
+  target_date: string;
+  request_type: TimeEditRequestType;
+  requested_clock_in: string | null;
+  requested_clock_out: string | null;
+  requested_break_minutes: number | null;
+  reason: string;
+  status: TimeEditRequestStatus;
+  owner_comment: string | null;
+  reviewed_by_profile_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TimeEditHistory = {
+  id: string;
+  company_id: string;
+  attendance_id: string | null;
+  profile_id: string;
+  edited_by_profile_id: string;
+  request_id: string | null;
+  edit_type: string;
+  before_clock_in: string | null;
+  before_clock_out: string | null;
+  before_break_minutes: number | null;
+  before_work_type: SalesWorkType | null;
+  after_clock_in: string | null;
+  after_clock_out: string | null;
+  after_break_minutes: number | null;
+  after_work_type: SalesWorkType | null;
+  reason: string;
+  owner_comment: string | null;
+  source: TimeEditSource;
+  created_at: string;
+};
+
+export type AppNotification = {
+  id: string;
+  company_id: string;
+  profile_id: string;
+  title: string;
+  body: string;
+  type: string;
+  read_at: string | null;
+  related_request_id: string | null;
+  related_history_id: string | null;
+  created_at: string;
 };
 
 export type Member = {
