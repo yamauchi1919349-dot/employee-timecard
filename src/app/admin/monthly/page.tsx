@@ -67,7 +67,16 @@ function AdminMonthlyContent() {
     if (!payload) return;
 
     const includePayroll = payload.settings.include_payroll;
-    const headers = [
+    const summaryHeaders = [
+      "対象月",
+      "スタッフ名",
+      "勤務日数",
+      "総労働時間",
+      "残業時間",
+      ...(includePayroll ? ["給与目安"] : []),
+    ];
+    const summaryRows = buildStaffSummaryRows(payload.rows, payload.selectedMonth, includePayroll);
+    const detailHeaders = [
       "対象月",
       "スタッフ名",
       "日付",
@@ -79,7 +88,7 @@ function AdminMonthlyContent() {
       "勤務区分",
       ...(includePayroll ? ["給与目安"] : []),
     ];
-    const rows = payload.rows.map((row) => [
+    const detailRows = payload.rows.map((row) => [
       payload.selectedMonth,
       row.staffName,
       row.workDate,
@@ -91,7 +100,16 @@ function AdminMonthlyContent() {
       getWorkTypeLabel(row.workType),
       ...(includePayroll ? [getPayrollLabel(row)] : []),
     ]);
-    const csv = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+    const csvRows = [
+      ["スタッフ別集計"],
+      summaryHeaders,
+      ...summaryRows,
+      [],
+      ["勤怠明細"],
+      detailHeaders,
+      ...detailRows,
+    ];
+    const csv = csvRows.map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
     const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
@@ -452,6 +470,61 @@ function getPayrollLabel(row: MonthlyRow) {
   if (row.payrollSource === "fixed") return row.fixedSalary ? `固定給 ${formatCurrency(row.fixedSalary)}` : "固定給";
   if (row.payrollSource === "hourly") return row.estimatedPayroll !== null ? formatCurrency(row.estimatedPayroll) : "未確定";
   return "未設定";
+}
+
+function buildStaffSummaryRows(rows: MonthlyRow[], month: string, includePayroll: boolean) {
+  const summaries = new Map<
+    string,
+    {
+      staffName: string;
+      workedDays: number;
+      totalWorkMinutes: number;
+      overtimeMinutes: number;
+      payrollTotal: number;
+      fixedSalaryAdded: boolean;
+    }
+  >();
+
+  rows.forEach((row) => {
+    const key = row.profileId ?? row.userId;
+    const summary =
+      summaries.get(key) ??
+      {
+        staffName: row.staffName,
+        workedDays: 0,
+        totalWorkMinutes: 0,
+        overtimeMinutes: 0,
+        payrollTotal: 0,
+        fixedSalaryAdded: false,
+      };
+
+    summary.workedDays += 1;
+
+    if (row.clockOut) {
+      summary.totalWorkMinutes += row.roundedWorkMinutes;
+      summary.overtimeMinutes += row.overtimeMinutes;
+    }
+
+    if (includePayroll) {
+      if (row.payrollSource === "fixed" && row.fixedSalary && !summary.fixedSalaryAdded) {
+        summary.payrollTotal += row.fixedSalary;
+        summary.fixedSalaryAdded = true;
+      } else if (row.payrollSource === "hourly" && row.clockOut && row.estimatedPayroll) {
+        summary.payrollTotal += row.estimatedPayroll;
+      }
+    }
+
+    summaries.set(key, summary);
+  });
+
+  return Array.from(summaries.values()).map((summary) => [
+    month,
+    summary.staffName,
+    `${summary.workedDays}日`,
+    formatMinutes(summary.totalWorkMinutes),
+    formatMinutes(summary.overtimeMinutes),
+    ...(includePayroll ? [formatCurrency(summary.payrollTotal)] : []),
+  ]);
 }
 
 function escapeCsvCell(value: string) {
