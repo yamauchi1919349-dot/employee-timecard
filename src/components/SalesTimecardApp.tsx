@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { formatTime } from "@/lib/attendance";
-import { Attendance, SalesWorkType } from "@/lib/types";
+import {
+  getRequestStatusLabel,
+  getRequestTypeLabel,
+} from "@/lib/time-edit";
+import { AppNotification, Attendance, SalesWorkType, TimeEditHistory, TimeEditRequest, TimeEditRequestType } from "@/lib/types";
 
-type ActiveTab = "home" | "calendar" | "monthly" | "other";
+type ActiveTab = "home" | "calendar" | "monthly" | "requests" | "other";
 type Status = "not_clocked_in" | "working" | "clocked_out";
 type SalesAttendance = Attendance & {
   profiles?: { name?: string | null; email?: string | null; role?: string | null } | null;
@@ -29,6 +33,19 @@ type TimecardPayload = {
   monthlyRows: SalesAttendance[];
   ownMonthRows: SalesAttendance[];
   summary: MonthlySummary;
+};
+
+type StaffTimeEditRequest = TimeEditRequest & {
+  attendance?: Pick<Attendance, "id" | "clock_in" | "clock_out" | "break_minutes" | "work_type"> | null;
+};
+
+type RequestForm = {
+  targetDate: string;
+  requestType: TimeEditRequestType;
+  requestedClockIn: string;
+  requestedClockOut: string;
+  requestedBreakMinutes: string;
+  reason: string;
 };
 
 const BASIC_WORK_MINUTES = 480;
@@ -57,6 +74,18 @@ export function SalesTimecardApp() {
   const [now, setNow] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [requests, setRequests] = useState<StaffTimeEditRequest[]>([]);
+  const [histories, setHistories] = useState<TimeEditHistory[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [requestForm, setRequestForm] = useState<RequestForm>(() => ({
+    targetDate: getDateKey(new Date()),
+    requestType: "wrong_time",
+    requestedClockIn: "",
+    requestedClockOut: "",
+    requestedBreakMinutes: "60",
+    reason: "",
+  }));
 
   const todayLog = payload?.todayLog ?? null;
   const status = getStatus(todayLog);
@@ -65,6 +94,7 @@ export function SalesTimecardApp() {
   const calendarRows = payload?.calendarRows ?? payload?.ownMonthRows ?? [];
   const monthlyRows = payload?.monthlyRows ?? payload?.ownMonthRows ?? [];
   const summary = payload?.summary ?? emptySummary();
+  const unreadCount = notifications.filter((notification) => !notification.read_at).length;
 
   const loadData = useCallback(async () => {
     if (!session) return;
@@ -76,7 +106,7 @@ export function SalesTimecardApp() {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
+      if (!response.ok) throw new Error(formatApiError(data));
 
       setPayload(data);
       if (data.todayLog) {
@@ -90,6 +120,29 @@ export function SalesTimecardApp() {
     }
   }, [selectedMonth, session]);
 
+  const loadTimeEditData = useCallback(async () => {
+    if (!session) return;
+    const headers = { Authorization: `Bearer ${session.access_token}` };
+    try {
+      const [requestsResponse, historyResponse, notificationsResponse] = await Promise.all([
+        fetch("/api/time-edit-requests", { headers }),
+        fetch("/api/time-edit-history", { headers }),
+        fetch("/api/notifications", { headers }),
+      ]);
+      const [requestsPayload, historyPayload, notificationsPayload] = await Promise.all([
+        requestsResponse.json(),
+        historyResponse.json(),
+        notificationsResponse.json(),
+      ]);
+
+      if (requestsResponse.ok) setRequests(requestsPayload.requests ?? []);
+      if (historyResponse.ok) setHistories(historyPayload.histories ?? []);
+      if (notificationsResponse.ok) setNotifications(notificationsPayload.notifications ?? []);
+    } catch {
+      setMessage("修正依頼データの取得に失敗しました。");
+    }
+  }, [session]);
+
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
@@ -98,6 +151,10 @@ export function SalesTimecardApp() {
   useEffect(() => {
     queueMicrotask(() => void loadData());
   }, [loadData]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadTimeEditData());
+  }, [loadTimeEditData]);
 
   async function postJson(path: string, body: unknown) {
     if (!session) return;
@@ -122,6 +179,50 @@ export function SalesTimecardApp() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function submitTimeEditRequest() {
+    if (!session) return;
+    if (!requestForm.reason.trim()) {
+      setMessage("理由を入力してください。");
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/time-edit-requests", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestForm),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(formatApiError(data));
+      setRequestModalOpen(false);
+      setRequestForm((current) => ({ ...current, reason: "" }));
+      setMessage("打刻修正依頼を送信しました。");
+      await loadTimeEditData();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "打刻修正依頼の送信に失敗しました。");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function markNotificationRead(id: string) {
+    if (!session) return;
+    const response = await fetch("/api/notifications/read", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
+    if (response.ok) await loadTimeEditData();
   }
 
   return (
@@ -175,12 +276,54 @@ export function SalesTimecardApp() {
           />
         ) : null}
 
+        {activeTab === "requests" ? (
+          <RequestsTab
+            requests={requests}
+            histories={histories}
+            notifications={notifications}
+            unreadCount={unreadCount}
+            onOpenRequest={() => setRequestModalOpen(true)}
+            onReadNotification={markNotificationRead}
+          />
+        ) : null}
+
         {activeTab === "other" ? <OtherTab onSignOut={signOut} /> : null}
       </div>
 
       <BottomTabs activeTab={activeTab} onChange={setActiveTab} />
+      {requestModalOpen ? (
+        <TimeEditRequestModal
+          form={requestForm}
+          loading={loading}
+          onChange={setRequestForm}
+          onClose={() => setRequestModalOpen(false)}
+          onSubmit={submitTimeEditRequest}
+        />
+      ) : null}
     </main>
   );
+}
+
+function formatApiError(data: unknown) {
+  if (!data || typeof data !== "object") return "APIエラーの内容を取得できませんでした。";
+  const payload = data as {
+    message?: string;
+    error?: string;
+    detail?: string;
+    supabaseCode?: string;
+    supabaseDetails?: string;
+    supabaseHint?: string;
+  };
+  return [
+    payload.message,
+    payload.error ? `error: ${payload.error}` : null,
+    payload.detail ? `detail: ${payload.detail}` : null,
+    payload.supabaseCode ? `code: ${payload.supabaseCode}` : null,
+    payload.supabaseDetails ? `details: ${payload.supabaseDetails}` : null,
+    payload.supabaseHint ? `hint: ${payload.supabaseHint}` : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function AppHeader({
@@ -468,6 +611,221 @@ function MonthlyTab({
   );
 }
 
+function RequestsTab({
+  requests,
+  histories,
+  notifications,
+  unreadCount,
+  onOpenRequest,
+  onReadNotification,
+}: {
+  requests: StaffTimeEditRequest[];
+  histories: TimeEditHistory[];
+  notifications: AppNotification[];
+  unreadCount: number;
+  onOpenRequest: () => void;
+  onReadNotification: (id: string) => void;
+}) {
+  return (
+    <>
+      <ScreenHeader title="打刻修正" subtitle={unreadCount ? `未読通知 ${unreadCount}件` : "申請と通知"} />
+      <button
+        type="button"
+        onClick={onOpenRequest}
+        className="flex h-16 items-center justify-between rounded-2xl bg-slate-950 px-5 text-left text-white shadow-sm transition active:scale-95"
+      >
+        <span className="text-lg font-black">打刻修正依頼</span>
+        <span className="text-2xl">＋</span>
+      </button>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <h3 className="text-lg font-black">通知</h3>
+        <div className="mt-4 grid gap-3">
+          {notifications.length ? (
+            notifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                onClick={() => onReadNotification(notification.id)}
+                className={`rounded-2xl p-4 text-left ring-1 ring-slate-100 ${
+                  notification.read_at ? "bg-slate-50 text-slate-500" : "bg-blue-50 text-slate-950"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-black">{notification.title}</p>
+                  <span className="shrink-0 text-xs font-black">{notification.read_at ? "既読" : "未読"}</span>
+                </div>
+                <p className="mt-2 text-sm font-bold leading-6">{notification.body}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">{formatDateTime(notification.created_at)}</p>
+              </button>
+            ))
+          ) : (
+            <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-400">通知はありません。</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <h3 className="text-lg font-black">自分の修正依頼</h3>
+        <div className="mt-4 grid gap-3">
+          {requests.length ? (
+            requests.map((request) => (
+              <article key={request.id} className="rounded-2xl bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-black">{request.target_date}</p>
+                    <p className="mt-1 text-sm font-bold text-slate-500">{getRequestTypeLabel(request.request_type)}</p>
+                  </div>
+                  <RequestStatusBadge status={request.status} />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <RequestMetric label="希望出勤" value={formatTime(request.requested_clock_in)} />
+                  <RequestMetric label="希望退勤" value={formatTime(request.requested_clock_out)} />
+                  <RequestMetric label="希望休憩" value={request.requested_break_minutes === null ? "-" : `${request.requested_break_minutes}分`} />
+                  <RequestMetric label="申請日時" value={formatDateTime(request.created_at)} />
+                </div>
+                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">理由: {request.reason}</p>
+                {request.owner_comment ? <p className="mt-2 text-sm font-bold text-slate-500">ownerコメント: {request.owner_comment}</p> : null}
+              </article>
+            ))
+          ) : (
+            <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-400">修正依頼はありません。</p>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <h3 className="text-lg font-black">修正履歴</h3>
+        <div className="mt-4 grid gap-3">
+          {histories.length ? (
+            histories.map((history) => (
+              <article key={history.id} className="rounded-2xl bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-black">{history.source === "direct" ? "owner直接修正" : "依頼経由"}</p>
+                  <p className="text-xs font-bold text-slate-500">{formatDateTime(history.created_at)}</p>
+                </div>
+                <p className="mt-3 text-sm font-bold text-slate-600">
+                  出勤 {formatTime(history.before_clock_in)} → {formatTime(history.after_clock_in)}
+                </p>
+                <p className="mt-1 text-sm font-bold text-slate-600">
+                  退勤 {formatTime(history.before_clock_out)} → {formatTime(history.after_clock_out)}
+                </p>
+                <p className="mt-1 text-sm font-bold text-slate-600">
+                  休憩 {history.before_break_minutes ?? "-"}分 → {history.after_break_minutes ?? "-"}分
+                </p>
+                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">理由: {history.reason}</p>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-400">修正履歴はありません。</p>
+          )}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function TimeEditRequestModal({
+  form,
+  loading,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  form: RequestForm;
+  loading: boolean;
+  onChange: (form: RequestForm | ((current: RequestForm) => RequestForm)) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-30 flex items-end bg-slate-950/40 px-4 py-5 backdrop-blur-sm">
+      <div className="mx-auto max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black">打刻修正依頼</h2>
+            <p className="mt-1 text-sm font-bold text-slate-500">attendanceは直接更新されません。</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl font-black">
+            ×
+          </button>
+        </div>
+        <div className="mt-5 grid gap-4">
+          <label className="text-sm font-black text-slate-500">
+            対象日
+            <input
+              type="date"
+              value={form.targetDate}
+              onChange={(event) => onChange((current) => ({ ...current, targetDate: event.target.value }))}
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base font-black"
+            />
+          </label>
+          <label className="text-sm font-black text-slate-500">
+            修正種別
+            <select
+              value={form.requestType}
+              onChange={(event) => onChange((current) => ({ ...current, requestType: event.target.value as TimeEditRequestType }))}
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-black"
+            >
+              <option value="missing_clock_in">出勤忘れ</option>
+              <option value="missing_clock_out">退勤忘れ</option>
+              <option value="wrong_time">時刻間違い</option>
+              <option value="break_fix">休憩時間修正</option>
+              <option value="other">その他</option>
+            </select>
+          </label>
+          <label className="text-sm font-black text-slate-500">
+            希望出勤時刻
+            <input
+              type="time"
+              value={form.requestedClockIn}
+              onChange={(event) => onChange((current) => ({ ...current, requestedClockIn: event.target.value }))}
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base font-black"
+            />
+          </label>
+          <label className="text-sm font-black text-slate-500">
+            希望退勤時刻
+            <input
+              type="time"
+              value={form.requestedClockOut}
+              onChange={(event) => onChange((current) => ({ ...current, requestedClockOut: event.target.value }))}
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base font-black"
+            />
+          </label>
+          <label className="text-sm font-black text-slate-500">
+            希望休憩時間（分）
+            <input
+              type="number"
+              min="0"
+              max="240"
+              value={form.requestedBreakMinutes}
+              onChange={(event) => onChange((current) => ({ ...current, requestedBreakMinutes: event.target.value }))}
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base font-black"
+            />
+          </label>
+          <label className="text-sm font-black text-slate-500">
+            理由
+            <textarea
+              value={form.reason}
+              onChange={(event) => onChange((current) => ({ ...current, reason: event.target.value }))}
+              className="mt-2 min-h-28 w-full rounded-xl border border-slate-200 px-4 py-3 text-base font-bold"
+              required
+            />
+          </label>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button type="button" onClick={onClose} className="h-12 rounded-xl bg-slate-100 font-black text-slate-700">
+            キャンセル
+          </button>
+          <button type="button" disabled={loading} onClick={onSubmit} className="h-12 rounded-xl bg-slate-950 font-black text-white disabled:bg-slate-300">
+            送信
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OtherTab({ onSignOut }: { onSignOut: () => void }) {
   return (
     <>
@@ -496,12 +854,13 @@ function BottomTabs({
     { id: "home", label: "ホーム", icon: "⌂" },
     { id: "calendar", label: "カレンダー", icon: "□" },
     { id: "monthly", label: "月次", icon: "▤" },
+    { id: "requests", label: "修正", icon: "!" },
     { id: "other", label: "その他", icon: "▧" },
   ];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white/95 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 shadow-sm backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-4 gap-2">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
         {tabs.map((tab) => {
           const active = activeTab === tab.id;
           return (
@@ -559,6 +918,25 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-lg font-black">{value}</p>
     </div>
   );
+}
+
+function RequestMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className="mt-1 font-black">{value}</p>
+    </div>
+  );
+}
+
+function RequestStatusBadge({ status }: { status: string }) {
+  const className =
+    status === "approved"
+      ? "bg-emerald-50 text-emerald-700"
+      : status === "rejected"
+        ? "bg-rose-50 text-rose-700"
+        : "bg-amber-50 text-amber-700";
+  return <span className={`rounded-full px-3 py-1 text-xs font-black ${className}`}>{getRequestStatusLabel(status)}</span>;
 }
 
 function ProgressRing({ progress, label }: { progress: number; label: string }) {
@@ -694,6 +1072,16 @@ function formatDate(date: Date) {
     day: "numeric",
     weekday: "short",
   });
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 function formatDuration(minutes: number) {
