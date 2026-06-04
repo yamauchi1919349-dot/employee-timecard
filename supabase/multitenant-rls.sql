@@ -66,7 +66,8 @@ alter table public.profiles
   add column if not exists employment_type text,
   add column if not exists hourly_wage integer,
   add column if not exists fixed_salary integer,
-  add column if not exists active boolean not null default true;
+  add column if not exists active boolean not null default true,
+  add column if not exists terms_accepted_at timestamptz;
 
 alter table public.profiles
   drop constraint if exists profiles_employment_type_check,
@@ -147,6 +148,7 @@ create index if not exists profiles_company_id_idx on public.profiles(company_id
 create index if not exists profiles_company_active_idx on public.profiles(company_id, active);
 create index if not exists profiles_store_id_idx on public.profiles(store_id);
 create index if not exists profiles_user_id_idx on public.profiles(user_id);
+create index if not exists profiles_terms_accepted_at_idx on public.profiles(terms_accepted_at);
 create unique index if not exists profiles_company_email_unique
   on public.profiles(company_id, lower(email))
   where email is not null;

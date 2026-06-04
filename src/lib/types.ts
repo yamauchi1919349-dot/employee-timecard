@@ -42,6 +42,7 @@ export type Profile = {
   hourly_wage: number | null;
   fixed_salary: number | null;
   active: boolean;
+  terms_accepted_at: string | null;
   created_at: string;
 };
 

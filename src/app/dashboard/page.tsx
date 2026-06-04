@@ -25,6 +25,13 @@ type AuthAttendance = {
   } | null;
 };
 
+const legalLinks = [
+  { href: "/terms", label: "利用規約" },
+  { href: "/privacy", label: "プライバシーポリシー" },
+  { href: "/company", label: "会社情報" },
+  { href: "/contact", label: "お問い合わせ" },
+];
+
 export default function DashboardPage() {
   return (
     <RequireAuth>
@@ -49,7 +56,7 @@ function DashboardRouter() {
 }
 
 function DashboardContent({ role }: { role: string }) {
-  const { session, profile, signOut } = useAuth();
+  const { session, profile, refreshProfile, signOut } = useAuth();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,11 +87,15 @@ function DashboardContent({ role }: { role: string }) {
     return <DashboardLoading />;
   }
 
+  if (role === "owner" && !profile?.terms_accepted_at) {
+    return <TermsAcceptanceScreen sessionToken={session?.access_token ?? ""} onAccepted={refreshProfile} onSignOut={signOut} />;
+  }
+
   return (
     <main data-route="sales-dashboard" className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
         <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-sm font-bold text-blue-700">{data?.company?.name ?? "Timecard"}</p>
               <h1 className="mt-2 text-3xl font-black tracking-normal text-slate-950">管理者ダッシュボード</h1>
@@ -92,13 +103,16 @@ function DashboardContent({ role }: { role: string }) {
                 {profile?.name ?? "管理者"} / {role}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={signOut}
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-            >
-              ログアウト
-            </button>
+            <div className="flex flex-col gap-3 lg:items-end">
+              <button
+                type="button"
+                onClick={signOut}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                ログアウト
+              </button>
+              <LegalLinks />
+            </div>
           </div>
         </header>
 
@@ -171,6 +185,98 @@ function DashboardContent({ role }: { role: string }) {
         </section>
       </div>
     </main>
+  );
+}
+
+function TermsAcceptanceScreen({
+  sessionToken,
+  onAccepted,
+  onSignOut,
+}: {
+  sessionToken: string;
+  onAccepted: () => Promise<void>;
+  onSignOut: () => Promise<void>;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function acceptTerms() {
+    if (!sessionToken) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch("/api/auth/terms", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message ?? "利用規約への同意に失敗しました。");
+      await onAccepted();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "利用規約への同意に失敗しました。");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:py-12">
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-5">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-bold text-blue-700">ArcNest</p>
+          <h1 className="mt-3 text-3xl font-black tracking-normal">利用規約への同意</h1>
+          <p className="mt-4 text-sm font-semibold leading-7 text-slate-600">
+            ownerとして管理画面を利用するには、初回のみ利用規約への同意が必要です。
+            内容をご確認のうえ「同意する」を押してください。
+          </p>
+          <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm font-semibold leading-7 text-slate-600">
+            <Link className="font-black text-blue-700 underline-offset-4 hover:underline" href="/terms" target="_blank">
+              利用規約を確認する
+            </Link>
+            <p className="mt-2">同意後、管理者ダッシュボードへ進めます。staffにはこの確認は表示されません。</p>
+          </div>
+          {message ? <p className="mt-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{message}</p> : null}
+          <div className="mt-6 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <button
+              type="button"
+              onClick={acceptTerms}
+              disabled={saving}
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:bg-slate-300"
+            >
+              {saving ? "保存中..." : "同意する"}
+            </button>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 shadow-sm hover:bg-slate-50"
+            >
+              ログアウト
+            </button>
+          </div>
+        </section>
+
+        <LegalLinks />
+      </div>
+    </main>
+  );
+}
+
+function LegalLinks() {
+  return (
+    <nav className="flex flex-wrap gap-2 text-xs font-bold text-slate-500 sm:text-sm">
+      {legalLinks.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className="rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200 transition hover:bg-blue-50 hover:text-blue-700"
+        >
+          {link.label}
+        </Link>
+      ))}
+    </nav>
   );
 }
 
