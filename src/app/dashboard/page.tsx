@@ -136,8 +136,8 @@ function DashboardContent({ role }: { role: string }) {
         </section>
 
         <nav className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Link href="/" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
-            legacy ホーム
+          <Link href="/admin/monthly" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
+            月次集計
           </Link>
           <Link href="/admin/staff" className="rounded-2xl bg-white p-4 text-sm font-bold shadow-sm">
             スタッフ管理

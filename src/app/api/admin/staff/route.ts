@@ -7,7 +7,8 @@ export async function GET(request: Request) {
     if (!profile) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
     }
-    if (!["owner", "manager"].includes(profile.role)) {
+    const role = profile.role?.trim().toLowerCase();
+    if (!["owner", "manager", "admin"].includes(role)) {
       return NextResponse.json({ message: "スタッフ一覧を表示する権限がありません。" }, { status: 403 });
     }
 
