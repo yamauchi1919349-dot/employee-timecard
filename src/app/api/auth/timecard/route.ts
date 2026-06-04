@@ -50,13 +50,16 @@ export async function GET(request: Request) {
     const attendance = (rows ?? []) as (Attendance & {
       profiles?: { name?: string | null; email?: string | null; role?: string | null } | null;
     })[];
+    const scopedRows =
+      role === "staff"
+        ? attendance
+        : attendance.filter((row) => row.user_id === profile.user_id);
+    const monthlyRows = scopedRows.filter((row) => Boolean(row.clock_in));
     const todayLog =
-      attendance.find((row) => row.work_date === workDate && row.user_id === profile.user_id) ??
+      scopedRows.find((row) => row.work_date === workDate && row.user_id === profile.user_id) ??
       null;
-    const ownMonthRows = attendance.filter((row) =>
-      role === "staff" ? true : row.user_id === profile.user_id,
-    );
-    const summaryRows = role === "staff" ? ownMonthRows : attendance;
+    const ownMonthRows = monthlyRows;
+    const summaryRows = role === "staff" ? monthlyRows : attendance.filter((row) => Boolean(row.clock_in));
     const summary = summarize(summaryRows);
 
     return NextResponse.json({
@@ -66,6 +69,8 @@ export async function GET(request: Request) {
       selectedMonth: month,
       todayLog,
       attendance,
+      calendarRows: scopedRows,
+      monthlyRows,
       ownMonthRows,
       summary,
     });
@@ -83,9 +88,13 @@ export async function GET(request: Request) {
 function summarize(rows: Attendance[]) {
   return rows.reduce(
     (summary, row) => {
-      const workMinutes = getWorkMinutes(row, row.clock_out ? new Date(row.clock_out) : null);
+      const grossMinutes = getGrossMinutes(row);
+      const breakMinutes = row.clock_in ? row.break_minutes : 0;
+      const workMinutes = getWorkMinutes(row);
       const overtimeMinutes = Math.max(0, workMinutes - BASIC_WORK_MINUTES);
 
+      summary.totalGrossMinutes += grossMinutes;
+      summary.totalBreakMinutes += breakMinutes;
       summary.totalWorkMinutes += workMinutes;
       summary.overtimeMinutes += overtimeMinutes;
       if (row.clock_in) summary.workedDays += 1;
@@ -93,6 +102,8 @@ function summarize(rows: Attendance[]) {
       return summary;
     },
     {
+      totalGrossMinutes: 0,
+      totalBreakMinutes: 0,
       totalWorkMinutes: 0,
       overtimeMinutes: 0,
       workedDays: 0,
@@ -100,10 +111,17 @@ function summarize(rows: Attendance[]) {
   );
 }
 
-function getWorkMinutes(row: Attendance, now: Date | null) {
-  if (!row.clock_in) return 0;
-  const end = row.clock_out ? new Date(row.clock_out) : now;
-  if (!end) return 0;
+function getGrossMinutes(row: Attendance) {
+  if (!row.clock_in || !row.clock_out) return 0;
+  return Math.max(
+    0,
+    Math.floor((new Date(row.clock_out).getTime() - new Date(row.clock_in).getTime()) / 60000),
+  );
+}
+
+function getWorkMinutes(row: Attendance) {
+  if (!row.clock_in || !row.clock_out) return 0;
+  const end = new Date(row.clock_out);
   const raw = Math.floor((end.getTime() - new Date(row.clock_in).getTime()) / 60000);
   return Math.max(0, raw - row.break_minutes);
 }

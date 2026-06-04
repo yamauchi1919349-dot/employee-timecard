@@ -2,14 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { BASIC_WORK_MINUTES, formatTime } from "@/lib/attendance";
+import { formatTime } from "@/lib/attendance";
 import { Attendance, SalesWorkType } from "@/lib/types";
 
 type ActiveTab = "home" | "calendar" | "monthly" | "other";
 type Status = "not_clocked_in" | "working" | "clocked_out";
-
 type SalesAttendance = Attendance & {
   profiles?: { name?: string | null; email?: string | null; role?: string | null } | null;
+};
+
+type MonthlySummary = {
+  totalGrossMinutes: number;
+  totalBreakMinutes: number;
+  totalWorkMinutes: number;
+  overtimeMinutes: number;
+  workedDays: number;
 };
 
 type TimecardPayload = {
@@ -18,13 +25,13 @@ type TimecardPayload = {
   selectedMonth: string;
   todayLog: SalesAttendance | null;
   attendance: SalesAttendance[];
+  calendarRows: SalesAttendance[];
+  monthlyRows: SalesAttendance[];
   ownMonthRows: SalesAttendance[];
-  summary: {
-    totalWorkMinutes: number;
-    overtimeMinutes: number;
-    workedDays: number;
-  };
+  summary: MonthlySummary;
 };
+
+const BASIC_WORK_MINUTES = 480;
 
 const workTypeOptions: { value: SalesWorkType; label: string }[] = [
   { value: "normal", label: "通常勤務" },
@@ -51,11 +58,13 @@ export function SalesTimecardApp() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const rows = payload?.ownMonthRows ?? [];
   const todayLog = payload?.todayLog ?? null;
   const status = getStatus(todayLog);
   const todayWorkMinutes = getWorkMinutes(todayLog, status === "working" ? now : null);
   const progress = Math.min(100, (todayWorkMinutes / BASIC_WORK_MINUTES) * 100);
+  const calendarRows = payload?.calendarRows ?? payload?.ownMonthRows ?? [];
+  const monthlyRows = payload?.monthlyRows ?? payload?.ownMonthRows ?? [];
+  const summary = payload?.summary ?? emptySummary();
 
   const loadData = useCallback(async () => {
     if (!session) return;
@@ -89,18 +98,6 @@ export function SalesTimecardApp() {
   useEffect(() => {
     queueMicrotask(() => void loadData());
   }, [loadData]);
-
-  async function clockIn() {
-    await postJson("/api/auth/clock-in", { workType, breakMinutes });
-  }
-
-  async function clockOut() {
-    await postJson("/api/auth/clock-out", { breakMinutes });
-  }
-
-  async function toggleHoliday(date: string) {
-    await postJson("/api/auth/calendar-day", { date });
-  }
 
   async function postJson(path: string, body: unknown) {
     if (!session) return;
@@ -154,26 +151,26 @@ export function SalesTimecardApp() {
             loading={loading}
             onWorkTypeChange={setWorkType}
             onBreakMinutesChange={setBreakMinutes}
-            onClockIn={clockIn}
-            onClockOut={clockOut}
+            onClockIn={() => postJson("/api/auth/clock-in", { workType, breakMinutes })}
+            onClockOut={() => postJson("/api/auth/clock-out", { breakMinutes })}
           />
         ) : null}
 
         {activeTab === "calendar" ? (
           <CalendarTab
             selectedMonth={selectedMonth}
-            rows={rows}
+            rows={calendarRows}
             loading={loading}
             onMonthChange={setSelectedMonth}
-            onToggleHoliday={toggleHoliday}
+            onToggleHoliday={(date) => postJson("/api/auth/calendar-day", { date })}
           />
         ) : null}
 
         {activeTab === "monthly" ? (
           <MonthlyTab
             selectedMonth={selectedMonth}
-            rows={rows}
-            summary={payload?.summary ?? { totalWorkMinutes: 0, overtimeMinutes: 0, workedDays: 0 }}
+            rows={monthlyRows}
+            summary={summary}
             onMonthChange={setSelectedMonth}
           />
         ) : null}
@@ -296,7 +293,7 @@ function HomeTab({
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
         <div className="grid grid-cols-2 gap-4">
           <label className="text-sm font-black text-slate-500">
-            <span className="flex items-center gap-2 text-[#6B7280]">▣ 勤務区分</span>
+            勤務区分
             <select
               value={workType}
               disabled={status !== "not_clocked_in"}
@@ -311,7 +308,7 @@ function HomeTab({
             </select>
           </label>
           <label className="text-sm font-black text-slate-500">
-            <span className="flex items-center gap-2 text-[#6B7280]">☕ 休憩設定</span>
+            休憩設定
             <select
               value={breakMinutes}
               disabled={status === "clocked_out"}
@@ -411,39 +408,50 @@ function MonthlyTab({
 }: {
   selectedMonth: string;
   rows: SalesAttendance[];
-  summary: TimecardPayload["summary"];
+  summary: MonthlySummary;
   onMonthChange: (month: string) => void;
 }) {
   return (
     <>
-      <ScreenHeader title="月次" subtitle="ひと月のまとめ" />
+      <ScreenHeader title="月次" subtitle="打刻データのみで集計" />
       <MonthStepper selectedMonth={selectedMonth} onMonthChange={onMonthChange} />
-      <section className="grid grid-cols-3 gap-3">
-        <SummaryCard label="勤務時間" value={formatDuration(summary.totalWorkMinutes)} />
-        <SummaryCard label="残業" value={formatDuration(summary.overtimeMinutes)} />
-        <SummaryCard label="出勤日数" value={`${summary.workedDays}日`} />
+      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <p className="text-sm font-black text-slate-500">対象月</p>
+        <p className="mt-2 text-2xl font-black">{formatMonth(selectedMonth)}</p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <SummaryCard label="勤務日数" value={`${summary.workedDays}日`} />
+          <SummaryCard label="総勤務時間" value={formatDuration(summary.totalGrossMinutes)} />
+          <SummaryCard label="総休憩時間" value={formatDuration(summary.totalBreakMinutes)} />
+          <SummaryCard label="総実働時間" value={formatDuration(summary.totalWorkMinutes)} />
+        </div>
       </section>
+      <ScreenHeader title="勤務記録一覧" subtitle="出勤打刻がある日のみ表示" />
       <section className="grid gap-3">
         {rows.length ? (
           rows.map((row) => {
             const workMinutes = getWorkMinutes(row, null);
-            const overtimeMinutes = Math.max(0, workMinutes - BASIC_WORK_MINUTES);
+            const missingClockOut = Boolean(row.clock_in && !row.clock_out);
             return (
               <article key={row.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-lg font-black">{formatShortDate(row.work_date)}</p>
-                    <p className="mt-1 text-sm font-bold text-slate-500">
-                      {formatTime(row.clock_in)} - {formatTime(row.clock_out)}
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-slate-400">
-                      {getWorkTypeLabel(row.work_type)} / {getBreakLabel(row.break_minutes)}
-                    </p>
+                    <p className="text-xl font-black">{formatShortDate(row.work_date)}</p>
+                    <p className="mt-2 text-sm font-bold text-slate-500">勤務区分</p>
+                    <p className="text-base font-black">{getWorkTypeLabel(row.work_type)}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-black">{formatDuration(workMinutes)}</p>
-                    <p className="mt-1 text-sm font-bold text-rose-500">
-                      残業 {formatDuration(overtimeMinutes)}
+                  <div className="min-w-0 flex-1 text-right">
+                    <p className="text-sm font-bold text-slate-500">出勤 {formatTime(row.clock_in)}</p>
+                    <p className={`mt-1 text-sm font-bold ${missingClockOut ? "text-rose-500" : "text-slate-500"}`}>
+                      退勤 {missingClockOut ? "退勤未打刻" : formatTime(row.clock_out)}
+                    </p>
+                    <p className="mt-3 text-sm font-bold text-slate-500">
+                      勤務 {missingClockOut ? "未確定" : formatDuration(getGrossMinutes(row))}
+                    </p>
+                    <p className="mt-1 text-sm font-bold text-slate-500">
+                      休憩 {getBreakLabel(row.break_minutes)}
+                    </p>
+                    <p className="mt-1 text-lg font-black">
+                      実働 {missingClockOut ? "未確定" : formatDuration(workMinutes)}
                     </p>
                   </div>
                 </div>
@@ -452,7 +460,7 @@ function MonthlyTab({
           })
         ) : (
           <p className="rounded-2xl bg-white p-5 text-center text-sm font-bold text-slate-400 shadow-sm">
-            この月の勤怠記録はありません。
+            この月の打刻記録はありません。
           </p>
         )}
       </section>
@@ -546,7 +554,7 @@ function MonthStepper({
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+    <div className="rounded-2xl bg-slate-50 p-4">
       <p className="text-xs font-bold text-slate-500">{label}</p>
       <p className="mt-2 text-lg font-black">{value}</p>
     </div>
@@ -645,6 +653,11 @@ function getStatusLabel(status: Status) {
   return "未出勤";
 }
 
+function getGrossMinutes(row: SalesAttendance | null) {
+  if (!row?.clock_in || !row.clock_out) return 0;
+  return Math.max(0, Math.floor((new Date(row.clock_out).getTime() - new Date(row.clock_in).getTime()) / 60000));
+}
+
 function getWorkMinutes(row: SalesAttendance | null, now: Date | null) {
   if (!row?.clock_in) return 0;
   const end = row.clock_out ? new Date(row.clock_out) : now;
@@ -732,4 +745,14 @@ function buildCalendarCells(month: string) {
       weekend: date.getDay() === 0 || date.getDay() === 6,
     };
   });
+}
+
+function emptySummary(): MonthlySummary {
+  return {
+    totalGrossMinutes: 0,
+    totalBreakMinutes: 0,
+    totalWorkMinutes: 0,
+    overtimeMinutes: 0,
+    workedDays: 0,
+  };
 }
