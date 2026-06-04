@@ -130,20 +130,20 @@ function StaffAdminContent() {
 
   return (
     <main data-route="sales-admin-staff" className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:py-10">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+        <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:p-6">
           <div>
-            <p className="text-sm font-semibold text-indigo-600">管理</p>
-            <h1 className="mt-1 text-3xl font-bold">スタッフ管理</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="text-sm font-bold text-blue-700">管理者</p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">スタッフ管理</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
               スタッフの基本情報、雇用区分、給与項目、有効状態を管理します。
             </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:bg-slate-50"
           >
-            戻る
+            ダッシュボードへ戻る
           </Link>
         </header>
 
@@ -157,9 +157,9 @@ function StaffAdminContent() {
           </div>
         ) : null}
 
-        <form onSubmit={handleInvite} className="rounded-2xl bg-white p-5 shadow-sm">
+        <form onSubmit={handleInvite} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-1">
-            <h2 className="text-xl font-bold">招待メール送信</h2>
+            <h2 className="text-xl font-black">招待メール送信</h2>
             <p className="text-sm text-slate-500">メールアドレスは認証に使うため、招待後はこの画面では編集できません。</p>
           </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -168,7 +168,7 @@ function StaffAdminContent() {
               <input
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-indigo-500"
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
                 required
               />
             </label>
@@ -178,7 +178,7 @@ function StaffAdminContent() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-indigo-500"
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
                 required
               />
             </label>
@@ -187,7 +187,7 @@ function StaffAdminContent() {
               <select
                 value={role}
                 onChange={(event) => setRole(event.target.value as TenantRole)}
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base outline-none focus:border-indigo-500"
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
               >
                 {normalizedRole === "owner" ? <option value="owner">owner</option> : null}
                 <option value="manager">manager</option>
@@ -198,26 +198,26 @@ function StaffAdminContent() {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-indigo-600 px-6 text-base font-bold text-white shadow-sm disabled:opacity-60"
+            className="mt-5 inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-base font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
           >
             {submitting ? "送信中..." : "招待する"}
           </button>
         </form>
 
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-xl font-bold">スタッフ一覧</h2>
+              <h2 className="text-xl font-black">スタッフ一覧</h2>
               <p className="mt-1 text-sm text-slate-500">
                 有効 {activeCount}名 / 無効 {inactiveCount}名
               </p>
             </div>
-            <label className="inline-flex items-center gap-3 text-sm font-bold text-slate-700">
+            <label className="inline-flex h-11 items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700">
               <input
                 type="checkbox"
                 checked={showInactive}
                 onChange={(event) => setShowInactive(event.target.checked)}
-                className="h-5 w-5 rounded border-slate-300 text-indigo-600"
+                className="h-5 w-5 rounded border-slate-300 text-blue-700"
               />
               無効スタッフを表示
             </label>
@@ -225,35 +225,35 @@ function StaffAdminContent() {
 
           {loading ? <p className="mt-4 text-sm text-slate-500">読み込み中...</p> : null}
 
-          <div className="mt-5 hidden overflow-x-auto lg:block">
+          <div className="mt-5 hidden overflow-x-auto rounded-xl border border-slate-100 lg:block">
             <table className="w-full min-w-[1120px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-slate-500">
+              <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
-                  <th className="py-2 pr-4">氏名</th>
-                  <th className="py-2 pr-4">メール</th>
-                  <th className="py-2 pr-4">role</th>
-                  <th className="py-2 pr-4">雇用区分</th>
-                  <th className="py-2 pr-4">時給</th>
-                  <th className="py-2 pr-4">固定給</th>
-                  <th className="py-2 pr-4">ステータス</th>
-                  <th className="py-2 pr-4">作成日/招待日</th>
-                  <th className="py-2 pr-4">操作</th>
+                  <th className="px-4 py-3">氏名</th>
+                  <th className="px-4 py-3">メール</th>
+                  <th className="px-4 py-3">role</th>
+                  <th className="px-4 py-3">雇用区分</th>
+                  <th className="px-4 py-3">時給</th>
+                  <th className="px-4 py-3">固定給</th>
+                  <th className="px-4 py-3">ステータス</th>
+                  <th className="px-4 py-3">作成日/招待日</th>
+                  <th className="px-4 py-3">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {staff.map((row) => (
-                  <tr key={row.id} className="border-b border-slate-100">
-                    <td className="py-3 pr-4 font-semibold">{row.name}</td>
-                    <td className="py-3 pr-4 text-slate-600">{row.email ?? "-"}</td>
-                    <td className="py-3 pr-4">{row.role}</td>
-                    <td className="py-3 pr-4">{getEmploymentLabel(row.employment_type)}</td>
-                    <td className="py-3 pr-4">{formatCurrency(row.hourly_wage)}</td>
-                    <td className="py-3 pr-4">{formatCurrency(row.fixed_salary)}</td>
-                    <td className="py-3 pr-4">
+                  <tr key={row.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-bold">{row.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.email ?? "-"}</td>
+                    <td className="px-4 py-3">{row.role}</td>
+                    <td className="px-4 py-3">{getEmploymentLabel(row.employment_type)}</td>
+                    <td className="px-4 py-3">{formatCurrency(row.hourly_wage)}</td>
+                    <td className="px-4 py-3">{formatCurrency(row.fixed_salary)}</td>
+                    <td className="px-4 py-3">
                       <StatusBadge active={row.active} />
                     </td>
-                    <td className="py-3 pr-4">{formatDate(row.created_at)}</td>
-                    <td className="py-3 pr-4">
+                    <td className="px-4 py-3">{formatDate(row.created_at)}</td>
+                    <td className="px-4 py-3">
                       <StaffActions row={row} onEdit={setEditingStaff} onDelete={handleDelete} />
                     </td>
                   </tr>
@@ -264,7 +264,7 @@ function StaffAdminContent() {
 
           <div className="mt-5 grid gap-3 lg:hidden">
             {staff.map((row) => (
-              <article key={row.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <article key={row.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-lg font-bold">{row.name}</h3>
@@ -325,7 +325,7 @@ function StaffActions({
       <button
         type="button"
         onClick={() => onEdit(row)}
-        className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm"
+        className="inline-flex h-10 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
       >
         編集
       </button>
@@ -333,7 +333,7 @@ function StaffActions({
         <button
           type="button"
           onClick={() => onDelete(row)}
-          className="inline-flex h-10 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm"
+          className="inline-flex h-10 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-rose-700"
         >
           削除
         </button>
@@ -396,17 +396,17 @@ function EditStaffModal({
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end bg-slate-950/40 px-4 py-5 backdrop-blur-sm sm:items-center">
-      <form onSubmit={handleSubmit} className="mx-auto w-full max-w-xl rounded-2xl bg-white p-5 shadow-xl">
+    <div className="fixed inset-0 z-30 flex items-end bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
+      <form onSubmit={handleSubmit} className="mx-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold">スタッフ編集</h2>
+            <h2 className="text-xl font-black">スタッフ編集</h2>
             <p className="mt-1 text-sm text-slate-500">メールアドレスは表示のみです。</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl font-bold text-slate-500"
+            className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-xl font-bold text-slate-500 transition hover:bg-slate-200"
             aria-label="閉じる"
           >
             ×
@@ -419,7 +419,7 @@ function EditStaffModal({
             <input
               value={form.name}
               onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-indigo-500"
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
               required
             />
           </label>
@@ -438,7 +438,7 @@ function EditStaffModal({
               onChange={(event) =>
                 setForm((current) => ({ ...current, employment_type: event.target.value as EmploymentType | "" }))
               }
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base outline-none focus:border-indigo-500"
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
             >
               <option value="">未設定</option>
               {EMPLOYMENT_OPTIONS.map((option) => (
@@ -455,7 +455,7 @@ function EditStaffModal({
               onChange={(event) =>
                 setForm((current) => ({ ...current, active: event.target.value === "active" }))
               }
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base outline-none focus:border-indigo-500"
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
             >
               <option value="active">有効</option>
               <option value="inactive">無効</option>
@@ -469,7 +469,7 @@ function EditStaffModal({
               step="1"
               value={form.hourly_wage}
               onChange={(event) => setForm((current) => ({ ...current, hourly_wage: event.target.value }))}
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-indigo-500"
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
               placeholder="未設定"
             />
           </label>
@@ -481,7 +481,7 @@ function EditStaffModal({
               step="1"
               value={form.fixed_salary}
               onChange={(event) => setForm((current) => ({ ...current, fixed_salary: event.target.value }))}
-              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none focus:border-indigo-500"
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
               placeholder="未設定"
             />
           </label>
@@ -491,14 +491,14 @@ function EditStaffModal({
           <button
             type="button"
             onClick={onClose}
-            className="h-12 rounded-xl bg-slate-100 px-5 text-base font-bold text-slate-700"
+            className="h-12 rounded-xl bg-slate-100 px-5 text-base font-bold text-slate-700 transition hover:bg-slate-200"
           >
             キャンセル
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="h-12 rounded-xl bg-indigo-600 px-6 text-base font-bold text-white shadow-sm disabled:opacity-60"
+            className="h-12 rounded-xl bg-slate-950 px-6 text-base font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
           >
             {saving ? "保存中..." : "保存"}
           </button>

@@ -121,25 +121,25 @@ function AdminSettingsContent() {
 
   return (
     <main data-route="sales-admin-settings" className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:py-10">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
+        <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:p-6">
           <div>
-            <p className="text-sm font-semibold text-indigo-600">管理者</p>
-            <h1 className="mt-1 text-3xl font-bold">管理設定</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="text-sm font-bold text-blue-700">管理者</p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">管理設定</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
               会社単位の勤怠ルールと給与計算表示を設定します。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
               href="/admin/monthly"
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm"
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:bg-slate-50"
             >
               月次集計
             </Link>
             <Link
               href="/dashboard"
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm"
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:bg-slate-50"
             >
               ダッシュボードへ戻る
             </Link>
@@ -157,11 +157,11 @@ function AdminSettingsContent() {
         ) : null}
 
         <form onSubmit={handleSubmit} className="grid gap-5">
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-bold">勤怠ルール設定</h2>
+              <h2 className="text-xl font-black">勤怠ルール</h2>
               <p className="text-sm text-slate-500">
-                実打刻時刻は保持したまま、管理者月次集計の労働時間・残業時間に反映します。
+                実打刻時刻は保持したまま、管理者月次集計の労働時間に反映します。
               </p>
             </div>
 
@@ -176,7 +176,7 @@ function AdminSettingsContent() {
                       work_rounding_minutes: Number(event.target.value) as WorkRoundingMinutes,
                     }))
                   }
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none focus:border-indigo-500"
+                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
                 >
                   {ROUNDING_RULE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -193,7 +193,7 @@ function AdminSettingsContent() {
                   onChange={(event) =>
                     setForm((current) => ({ ...current, rounding_method: event.target.value as RoundingMethod }))
                   }
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none focus:border-indigo-500"
+                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:text-slate-400"
                   disabled={form.work_rounding_minutes === 0}
                 >
                   {ROUNDING_METHOD_OPTIONS.map((option) => (
@@ -204,6 +204,18 @@ function AdminSettingsContent() {
                 </select>
               </label>
 
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-xl font-black">残業設定</h2>
+              <p className="text-sm text-slate-500">
+                残業時間の計算を始める労働時間を設定します。
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
               <label className="text-sm font-semibold text-slate-700">
                 残業開始時間
                 <select
@@ -214,7 +226,7 @@ function AdminSettingsContent() {
                       overtimePreset: event.target.value as FormState["overtimePreset"],
                     }))
                   }
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none focus:border-indigo-500"
+                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
                 >
                   <option value="480">8時間超</option>
                   <option value="450">7.5時間超</option>
@@ -234,15 +246,15 @@ function AdminSettingsContent() {
                     setForm((current) => ({ ...current, overtimeCustomMinutes: event.target.value }))
                   }
                   disabled={form.overtimePreset !== "custom"}
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
+                  className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50 disabled:text-slate-400"
                 />
               </label>
             </div>
           </section>
 
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-1">
-              <h2 className="text-xl font-bold">給与計算設定</h2>
+              <h2 className="text-xl font-black">給与計算設定</h2>
               <p className="text-sm text-slate-500">
                 月次集計に給与目安を表示するかを切り替えます。初期値は「含めない」です。
               </p>
@@ -255,7 +267,7 @@ function AdminSettingsContent() {
                 onChange={(event) =>
                   setForm((current) => ({ ...current, include_payroll: event.target.value === "include" }))
                 }
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none focus:border-indigo-500"
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
               >
                 <option value="exclude">月次集計に給与計算を含めない</option>
                 <option value="include">月次集計に給与計算を含める</option>
@@ -263,8 +275,8 @@ function AdminSettingsContent() {
             </label>
           </section>
 
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-bold">現在の設定</h2>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-xl font-black">現在の設定</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <SettingPreview label="計算ルール" value={getRoundingRuleLabel(form.work_rounding_minutes)} />
               <SettingPreview label="丸め方式" value={getRoundingMethodLabel(form.rounding_method)} />
@@ -276,7 +288,7 @@ function AdminSettingsContent() {
           <button
             type="submit"
             disabled={loading || saving}
-            className="h-12 rounded-xl bg-indigo-600 px-6 text-base font-bold text-white shadow-sm disabled:opacity-60"
+            className="h-12 rounded-xl bg-slate-950 px-6 text-base font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-60"
           >
             {saving ? "保存中..." : "保存"}
           </button>
@@ -301,9 +313,9 @@ function toFormState(settings?: CompanySettings): FormState {
 
 function SettingPreview({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
-      <p className="mt-2 text-lg font-bold text-slate-950">{value}</p>
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className="mt-2 text-lg font-black text-slate-950">{value}</p>
     </div>
   );
 }

@@ -177,33 +177,33 @@ function AdminMonthlyContent() {
   }
 
   return (
-    <main data-route="sales-admin-monthly" className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <main data-route="sales-admin-monthly" className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:py-10">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+        <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:p-6">
           <div>
-            <p className="text-sm font-semibold text-indigo-600">管理者</p>
-            <h1 className="mt-1 text-3xl font-bold">月次集計</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="text-sm font-bold text-blue-700">管理者</p>
+            <h1 className="mt-2 text-3xl font-black text-slate-950">月次集計</h1>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
               打刻履歴のみを基準に集計します。カレンダー休日設定は反映しません。
             </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:bg-slate-50"
           >
             ダッシュボードへ戻る
           </Link>
         </header>
 
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-          <div className="grid gap-4 md:grid-cols-2">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
             <label className="text-sm font-semibold text-slate-700">
               月選択
               <input
                 type="month"
                 value={month}
                 onChange={(event) => setMonth(event.target.value)}
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none focus:border-indigo-500"
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
               />
             </label>
             <label className="text-sm font-semibold text-slate-700">
@@ -211,7 +211,7 @@ function AdminMonthlyContent() {
               <select
                 value={profileId}
                 onChange={(event) => setProfileId(event.target.value)}
-                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none focus:border-indigo-500"
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
               >
                 <option value="">全スタッフ</option>
                 {staff.map((row) => (
@@ -221,6 +221,14 @@ function AdminMonthlyContent() {
                 ))}
               </select>
             </label>
+            <button
+              type="button"
+              onClick={handleCsvDownload}
+              disabled={!payload || loading}
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500"
+            >
+              CSV出力
+            </button>
           </div>
         </section>
 
@@ -230,7 +238,7 @@ function AdminMonthlyContent() {
           </div>
         ) : null}
 
-        <section className={`grid gap-3 sm:grid-cols-2 ${payload?.settings.include_payroll ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+        <section className={`grid gap-4 sm:grid-cols-2 ${payload?.settings.include_payroll ? "xl:grid-cols-5" : "lg:grid-cols-4"}`}>
           <SummaryCard label="出勤日数" value={`${payload?.summary.workedDays ?? 0}日`} />
           <SummaryCard label="休日" value={`${payload?.summary.holidayDays ?? 0}日`} />
           <SummaryCard label="総労働時間" value={formatMinutes(payload?.summary.totalWorkMinutes ?? 0)} />
@@ -241,17 +249,17 @@ function AdminMonthlyContent() {
         </section>
 
         {payload?.settings ? (
-          <section className="rounded-2xl bg-white p-5 shadow-sm">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-xl font-bold">反映中の管理設定</h2>
+                <h2 className="text-xl font-black">反映中の管理設定</h2>
                 <p className="mt-1 text-sm text-slate-500">
                   集計値のみ設定を反映します。出勤・退勤時刻は実打刻のままです。
                 </p>
               </div>
               <Link
                 href="/admin/settings"
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-600 shadow-sm transition hover:bg-slate-50"
               >
                 管理設定
               </Link>
@@ -265,55 +273,45 @@ function AdminMonthlyContent() {
           </section>
         ) : null}
 
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="text-xl font-bold">打刻記録一覧</h2>
+              <h2 className="text-xl font-black">打刻記録一覧</h2>
               <p className="mt-1 text-sm text-slate-500">
                 {month} / {selectedStaffLabel}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {loading ? <p className="text-sm font-semibold text-slate-500">読み込み中...</p> : null}
-              <button
-                type="button"
-                onClick={handleCsvDownload}
-                disabled={!payload || loading}
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-sm disabled:bg-slate-200 disabled:text-slate-500"
-              >
-                CSV出力
-              </button>
-            </div>
+            {loading ? <p className="text-sm font-semibold text-slate-500">読み込み中...</p> : null}
           </div>
 
-          <div className="mt-5 hidden overflow-x-auto md:block">
+          <div className="mt-5 hidden overflow-x-auto rounded-xl border border-slate-100 md:block">
             <table className="w-full min-w-[980px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-slate-500">
+              <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
-                  <th className="py-2 pr-4">日付</th>
-                  <th className="py-2 pr-4">スタッフ</th>
-                  <th className="py-2 pr-4">勤務区分</th>
-                  <th className="py-2 pr-4">出勤</th>
-                  <th className="py-2 pr-4">退勤</th>
-                  <th className="py-2 pr-4">休憩</th>
-                  <th className="py-2 pr-4">労働時間</th>
-                  <th className="py-2 pr-4">残業</th>
-                  {payload?.settings.include_payroll ? <th className="py-2 pr-4">給与目安</th> : null}
+                  <th className="px-4 py-3">日付</th>
+                  <th className="px-4 py-3">スタッフ</th>
+                  <th className="px-4 py-3">勤務区分</th>
+                  <th className="px-4 py-3">出勤</th>
+                  <th className="px-4 py-3">退勤</th>
+                  <th className="px-4 py-3">休憩</th>
+                  <th className="px-4 py-3">労働時間</th>
+                  <th className="px-4 py-3">残業</th>
+                  {payload?.settings.include_payroll ? <th className="px-4 py-3">給与目安</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {(payload?.rows ?? []).map((row) => (
-                  <tr key={row.id} className="border-b border-slate-100">
-                    <td className="py-3 pr-4 font-semibold">{formatDate(row.workDate)}</td>
-                    <td className="py-3 pr-4">{row.staffName}</td>
-                    <td className="py-3 pr-4">{getWorkTypeLabel(row.workType)}</td>
-                    <td className="py-3 pr-4">{formatTime(row.clockIn)}</td>
-                    <td className="py-3 pr-4">{row.clockOut ? formatTime(row.clockOut) : <span className="font-bold text-rose-600">退勤未打刻</span>}</td>
-                    <td className="py-3 pr-4">{formatMinutes(row.breakMinutes)}</td>
-                    <td className="py-3 pr-4">{row.clockOut ? formatMinutes(row.roundedWorkMinutes) : "未確定"}</td>
-                    <td className="py-3 pr-4">{row.clockOut ? formatMinutes(row.overtimeMinutes) : "未確定"}</td>
+                  <tr key={row.id} className="border-t border-slate-100">
+                    <td className="px-4 py-3 font-bold">{formatDate(row.workDate)}</td>
+                    <td className="px-4 py-3">{row.staffName}</td>
+                    <td className="px-4 py-3">{getWorkTypeLabel(row.workType)}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatTime(row.clockIn)}</td>
+                    <td className="px-4 py-3">{row.clockOut ? formatTime(row.clockOut) : <span className="font-bold text-rose-600">退勤未打刻</span>}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatMinutes(row.breakMinutes)}</td>
+                    <td className="px-4 py-3 font-semibold">{row.clockOut ? formatMinutes(row.roundedWorkMinutes) : "未確定"}</td>
+                    <td className="px-4 py-3 font-semibold">{row.clockOut ? formatMinutes(row.overtimeMinutes) : "未確定"}</td>
                     {payload?.settings.include_payroll ? (
-                      <td className="py-3 pr-4">{getPayrollLabel(row)}</td>
+                      <td className="px-4 py-3">{getPayrollLabel(row)}</td>
                     ) : null}
                   </tr>
                 ))}
@@ -323,7 +321,7 @@ function AdminMonthlyContent() {
 
           <div className="mt-5 grid gap-3 md:hidden">
             {(payload?.rows ?? []).map((row) => (
-              <article key={row.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <article key={row.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-slate-500">{formatDate(row.workDate)}</p>
@@ -370,16 +368,16 @@ function AdminMonthlyContent() {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm">
-      <p className="text-sm font-semibold text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-bold text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-black text-slate-950 lg:text-3xl">{value}</p>
     </div>
   );
 }
 
 function SettingChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
+    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
       <p className="text-xs font-semibold text-slate-500">{label}</p>
       <p className="mt-1 font-bold text-slate-950">{value}</p>
     </div>
