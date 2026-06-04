@@ -29,13 +29,36 @@ create table if not exists public.profiles (
   name text not null,
   email text,
   role text not null default 'staff',
+  employment_type text,
+  hourly_wage integer,
+  fixed_salary integer,
+  active boolean not null default true,
   created_at timestamptz not null default now(),
   constraint profiles_user_id_unique unique (user_id),
   constraint profiles_role_check check (role in ('owner', 'manager', 'staff'))
 );
 
 alter table public.profiles
-  add column if not exists email text;
+  add column if not exists email text,
+  add column if not exists employment_type text,
+  add column if not exists hourly_wage integer,
+  add column if not exists fixed_salary integer,
+  add column if not exists active boolean not null default true;
+
+alter table public.profiles
+  drop constraint if exists profiles_employment_type_check,
+  add constraint profiles_employment_type_check
+    check (employment_type is null or employment_type in ('full_time', 'part_time', 'contract', 'other'));
+
+alter table public.profiles
+  drop constraint if exists profiles_hourly_wage_non_negative,
+  add constraint profiles_hourly_wage_non_negative
+    check (hourly_wage is null or hourly_wage >= 0);
+
+alter table public.profiles
+  drop constraint if exists profiles_fixed_salary_non_negative,
+  add constraint profiles_fixed_salary_non_negative
+    check (fixed_salary is null or fixed_salary >= 0);
 
 create table if not exists public.attendance (
   id uuid primary key default gen_random_uuid(),
@@ -98,6 +121,7 @@ alter table public.pdf_email_recipients
 
 create index if not exists stores_company_id_idx on public.stores(company_id);
 create index if not exists profiles_company_id_idx on public.profiles(company_id);
+create index if not exists profiles_company_active_idx on public.profiles(company_id, active);
 create index if not exists profiles_store_id_idx on public.profiles(store_id);
 create index if not exists profiles_user_id_idx on public.profiles(user_id);
 create unique index if not exists profiles_company_email_unique

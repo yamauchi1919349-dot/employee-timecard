@@ -23,9 +23,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       <AuthShell>
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
           <h1 className="text-xl font-bold text-slate-950">プロフィールが見つかりません</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            {profileError}
-          </p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">{profileError}</p>
         </div>
       </AuthShell>
     );
@@ -42,8 +40,9 @@ export function RequireRole({
   children: ReactNode;
 }) {
   const { profile } = useAuth();
+  const role = profile?.role?.trim().toLowerCase() as TenantRole | undefined;
 
-  if (!profile || !roles.includes(profile.role)) {
+  if (!role || !roles.includes(role)) {
     return (
       <AuthShell>
         <div className="rounded-2xl bg-white p-6 text-center shadow-sm">

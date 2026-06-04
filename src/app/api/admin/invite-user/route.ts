@@ -16,7 +16,8 @@ export async function POST(request: Request) {
     if (!inviter) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
     }
-    if (!["owner", "manager"].includes(inviter.role)) {
+    const inviterRole = inviter.role?.trim().toLowerCase();
+    if (!["owner", "manager"].includes(inviterRole)) {
       return NextResponse.json({ message: "招待する権限がありません。" }, { status: 403 });
     }
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     if (!INVITABLE_ROLES.includes(role)) {
       return NextResponse.json({ message: "指定された権限が正しくありません。" }, { status: 400 });
     }
-    if (inviter.role === "manager" && role === "owner") {
+    if (inviterRole === "manager" && role === "owner") {
       return NextResponse.json({ message: "manager は owner を招待できません。" }, { status: 403 });
     }
 
@@ -97,8 +98,9 @@ export async function POST(request: Request) {
         name,
         email,
         role,
+        active: true,
       })
-      .select("id,user_id,company_id,store_id,name,email,role,created_at")
+      .select("id,user_id,company_id,store_id,name,email,role,employment_type,hourly_wage,fixed_salary,active,created_at")
       .single();
 
     if (profileError) {

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
-export type TenantRole = "owner" | "manager" | "staff";
+export type TenantRole = "owner" | "manager" | "staff" | "admin";
+export type EmploymentType = "full_time" | "part_time" | "contract" | "other";
 
 export type AuthProfile = {
   id: string;
@@ -10,6 +11,10 @@ export type AuthProfile = {
   name: string;
   email: string | null;
   role: TenantRole;
+  employment_type: EmploymentType | null;
+  hourly_wage: number | null;
+  fixed_salary: number | null;
+  active: boolean;
   created_at: string;
 };
 
@@ -72,8 +77,9 @@ export async function getAuthenticatedProfile(request: Request) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,user_id,company_id,store_id,name,email,role,created_at")
+    .select("id,user_id,company_id,store_id,name,email,role,employment_type,hourly_wage,fixed_salary,active,created_at")
     .eq("user_id", user.id)
+    .eq("active", true)
     .maybeSingle<AuthProfile>();
 
   if (error) {

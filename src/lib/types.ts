@@ -11,7 +11,8 @@ export type Company = {
   created_at: string;
 };
 
-export type TenantRole = "owner" | "manager" | "staff";
+export type TenantRole = "owner" | "manager" | "staff" | "admin";
+export type EmploymentType = "full_time" | "part_time" | "contract" | "other";
 
 export type Profile = {
   id: string;
@@ -21,6 +22,10 @@ export type Profile = {
   name: string;
   email: string | null;
   role: TenantRole;
+  employment_type: EmploymentType | null;
+  hourly_wage: number | null;
+  fixed_salary: number | null;
+  active: boolean;
   created_at: string;
 };
 
