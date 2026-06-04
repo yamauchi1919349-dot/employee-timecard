@@ -56,8 +56,16 @@ function LoginForm() {
     <main data-route="sales-login" className="min-h-screen bg-slate-50 px-4 py-12 text-slate-950">
       <div className="mx-auto flex w-full max-w-md flex-col gap-5">
         <header className="text-center">
-          <p className="text-sm font-semibold text-indigo-600">Timecard</p>
+          <p className="text-sm font-semibold text-indigo-600">ArcNest Timecard</p>
           <h1 className="mt-2 text-3xl font-bold">ログイン</h1>
+          <div className="mt-4 flex justify-center gap-2 text-sm font-bold">
+            <Link href="/lp" className="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm ring-1 ring-slate-200 hover:text-blue-700">
+              サービス紹介
+            </Link>
+            <Link href="/pricing" className="rounded-xl bg-white px-3 py-2 text-slate-600 shadow-sm ring-1 ring-slate-200 hover:text-blue-700">
+              料金を見る
+            </Link>
+          </div>
         </header>
 
         <form onSubmit={handleSubmit} className="rounded-2xl bg-white p-6 shadow-sm">
