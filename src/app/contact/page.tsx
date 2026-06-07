@@ -12,6 +12,8 @@ export default function ContactPage() {
     <LegalPage
       title="お問い合わせ"
       lead="サービスに関するご質問、不具合のご連絡、個人情報に関するお問い合わせは、下記メールアドレスまでご連絡ください。"
+      backHref="/lp"
+      backLabel="← サービス紹介へ戻る"
       sections={[
         {
           title: "メールでのお問い合わせ",

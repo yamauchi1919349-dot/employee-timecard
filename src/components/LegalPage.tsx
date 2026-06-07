@@ -11,16 +11,20 @@ export function LegalPage({
   title,
   lead,
   sections,
+  backHref,
+  backLabel,
 }: {
   title: string;
   lead: string;
   sections: LegalSection[];
+  backHref?: string;
+  backLabel?: string;
 }) {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:py-12">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <div>
-          <LegalBackButton />
+          <LegalBackButton href={backHref} label={backLabel} />
         </div>
 
         <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">

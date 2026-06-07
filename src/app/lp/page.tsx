@@ -1,31 +1,80 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Metadata } from "next";
 
 const painPoints = [
-  "紙のタイムカード管理が大変",
-  "打刻忘れの確認に時間がかかる",
-  "月末集計が面倒",
-  "スタッフごとの勤務時間をすぐ確認したい",
+  {
+    title: "紙や表計算での集計に時間がかかる",
+    body: "出勤簿の確認、勤務時間の集計、CSV作成までを月末にまとめて行う負担を減らします。",
+  },
+  {
+    title: "スタッフごとの打刻状況が見えにくい",
+    body: "出勤中、退勤済み、未打刻などを管理画面で確認し、現場の状況を把握しやすくします。",
+  },
+  {
+    title: "打刻忘れや時刻修正のやり取りが残らない",
+    body: "スタッフは修正依頼を送り、管理者が承認・却下できます。修正履歴も残せます。",
+  },
+  {
+    title: "給与ソフトへ渡す勤怠データを整えたい",
+    body: "勤怠記録と月次集計をCSVで出力し、給与計算ソフトへ渡す前の準備をしやすくします。",
+  },
 ];
 
 const features = [
-  "スマホ打刻",
-  "スタッフ招待",
-  "月次集計",
-  "CSV出力",
-  "打刻修正依頼",
-  "修正履歴",
-  "管理設定",
-  "利用規約同意管理",
+  {
+    title: "スマホ打刻",
+    body: "スタッフはスマホから出勤・退勤を記録できます。",
+  },
+  {
+    title: "スタッフ管理",
+    body: "スタッフ情報、雇用区分、有効・無効状態を管理できます。",
+  },
+  {
+    title: "月次集計",
+    body: "勤務日数、労働時間、残業時間を月単位で確認できます。",
+  },
+  {
+    title: "CSV出力",
+    body: "選択した月とスタッフ条件で、勤怠集計CSVを出力できます。",
+  },
+  {
+    title: "打刻修正依頼",
+    body: "スタッフが修正依頼を送り、管理者が承認できます。",
+  },
+  {
+    title: "修正履歴",
+    body: "承認・直接修正の履歴を残し、あとから確認できます。",
+  },
+  {
+    title: "管理設定",
+    body: "丸め設定や残業開始時間など、会社単位の運用ルールを設定できます。",
+  },
+  {
+    title: "概算人件費表示",
+    body: "必要な場合のみ、勤怠データに基づく目安を表示できます。",
+  },
 ];
 
-const flow = ["管理者が会社を登録", "スタッフを招待", "スタッフがスマホで打刻", "管理者が月次集計・CSV出力"];
+const users = [
+  "飲食店",
+  "キッチンカー",
+  "小売店",
+  "美容・サロン",
+  "小規模オフィス",
+  "個人事業主",
+];
 
-const users = ["飲食店", "キッチンカー", "小売店", "小規模事業者", "個人事業主"];
+const philosophy = [
+  "現場の人が迷わず使えること",
+  "管理者が月末に困らないこと",
+  "既存の給与ソフトと役割を分けること",
+];
 
 export const metadata: Metadata = {
-  title: "小規模事業者のための勤怠管理 | ArcNest",
-  description: "スマホで打刻、PCで集計。スタッフ管理から月次CSV出力まで、日々の勤怠業務をかんたんに。",
+  title: "小規模事業者向け勤怠管理システム | ArcNest Timecard",
+  description:
+    "現場を支える、シンプルな業務システム。スマホ打刻、スタッフ管理、月次集計、CSV出力までをまとめたArcNestの勤怠管理システムです。",
 };
 
 export default function LandingPage() {
@@ -39,17 +88,20 @@ export default function LandingPage() {
           <div className="max-w-3xl">
             <p className="text-sm font-black text-blue-200">ArcNest Timecard</p>
             <h1 className="mt-5 text-4xl font-black leading-tight tracking-normal sm:text-5xl lg:text-6xl">
-              小規模事業者のための、シンプルな勤怠管理
+              小規模事業者向け勤怠管理システム
             </h1>
             <p className="mt-6 max-w-2xl text-base font-semibold leading-8 text-slate-200 sm:text-lg">
-              スマホで打刻、PCで集計。スタッフ管理から月次CSV出力まで、日々の勤怠業務をかんたんに。
+              現場を支える、シンプルな業務システム。スマホで打刻、PCで集計。スタッフ管理から月次CSV出力まで、日々の勤怠業務をまとめて扱えます。
+            </p>
+            <p className="mt-4 max-w-2xl rounded-xl border border-blue-300/20 bg-blue-300/10 px-4 py-3 text-sm font-bold leading-6 text-blue-100">
+              ArcNest Timecardは給与計算ソフトではありません。勤怠記録・勤怠集計・CSV出力までを担当し、正式な給与計算は既存の給与ソフトに委ねます。
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link href="/contact" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-black text-white shadow-sm transition hover:bg-blue-500">
-                無料で相談する
+                導入について相談する
               </Link>
-              <Link href="/login" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 bg-white px-6 text-sm font-black text-slate-950 shadow-sm transition hover:bg-blue-50">
-                ログイン
+              <Link href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/20 bg-white px-6 text-sm font-black text-slate-950 shadow-sm transition hover:bg-blue-50">
+                料金を見る
               </Link>
             </div>
           </div>
@@ -59,11 +111,12 @@ export default function LandingPage() {
 
       <section className="px-4 py-14 sm:py-16">
         <div className="mx-auto w-full max-w-6xl">
-          <SectionHeader eyebrow="Problem" title="勤怠管理で、こんな手間が残っていませんか" />
+          <SectionHeader eyebrow="Problem" title="よくある課題" />
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {painPoints.map((item) => (
-              <article key={item} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-base font-black leading-7">{item}</p>
+              <article key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="text-base font-black leading-7">{item.title}</h3>
+                <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{item.body}</p>
               </article>
             ))}
           </div>
@@ -72,12 +125,15 @@ export default function LandingPage() {
 
       <section className="bg-slate-50 px-4 py-14 sm:py-16">
         <div className="mx-auto w-full max-w-6xl">
-          <SectionHeader eyebrow="Features" title="日々の運用に必要な機能を、ひとつに" />
+          <SectionHeader eyebrow="Features" title="主な機能紹介" />
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature) => (
-              <article key={feature} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">✓</div>
-                <h3 className="mt-4 text-lg font-black">{feature}</h3>
+            {features.map((feature, index) => (
+              <article key={feature.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">
+                  {String(index + 1).padStart(2, "0")}
+                </div>
+                <h3 className="mt-4 text-lg font-black">{feature.title}</h3>
+                <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{feature.body}</p>
               </article>
             ))}
           </div>
@@ -86,21 +142,34 @@ export default function LandingPage() {
 
       <section className="px-4 py-14 sm:py-16">
         <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-          <SectionHeader eyebrow="Workflow" title="導入後の利用イメージ" />
+          <SectionHeader eyebrow="Philosophy" title="ArcNestの考え方" />
           <div className="grid gap-4">
-            {flow.map((step, index) => (
-              <article key={step} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-sm font-black text-white">{index + 1}</span>
-                <p className="self-center text-base font-black">{step}</p>
-              </article>
-            ))}
+            <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-black text-blue-700">現場を支える、シンプルな業務システム。</p>
+              <h3 className="mt-3 text-2xl font-black tracking-normal text-slate-950">
+                日々の記録を整え、月末の確認を軽くする
+              </h3>
+              <p className="mt-4 text-sm font-semibold leading-7 text-slate-600">
+                ArcNestは、小さなチームが無理なく使える業務システムを目指しています。勤怠管理では、現場の打刻と管理者の集計をつなぎ、給与ソフトへ渡す前の勤怠データを整えることに集中します。
+              </p>
+            </article>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {philosophy.map((item) => (
+                <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-black leading-6 text-slate-700">
+                  {item}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       <section className="bg-slate-50 px-4 py-14 sm:py-16">
         <div className="mx-auto w-full max-w-6xl">
-          <SectionHeader eyebrow="For" title="小さなチームの勤怠管理に" />
+          <SectionHeader eyebrow="For" title="対象ユーザー" />
+          <p className="mt-4 max-w-3xl text-sm font-semibold leading-7 text-slate-600">
+            複雑な給与計算機能よりも、まずは打刻・確認・月次集計・CSV出力を整えたい小規模事業者向けです。
+          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             {users.map((user) => (
               <span key={user} className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-sm">
@@ -114,15 +183,18 @@ export default function LandingPage() {
       <section className="px-4 py-14 sm:py-16">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-black text-blue-700">Next Step</p>
-            <h2 className="mt-2 text-2xl font-black tracking-normal sm:text-3xl">料金と導入方法を確認する</h2>
+            <p className="text-sm font-black text-blue-700">Contact</p>
+            <h2 className="mt-2 text-2xl font-black tracking-normal sm:text-3xl">自社の運用に合うか相談する</h2>
+            <p className="mt-3 max-w-2xl text-sm font-semibold leading-7 text-slate-600">
+              現在の勤怠管理方法、スタッフ人数、月次集計の流れを伺いながら、導入イメージをご案内します。
+            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-black text-white shadow-sm transition hover:bg-blue-700">
-              料金を見る
-            </Link>
-            <Link href="/contact" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-6 text-sm font-black text-slate-700 shadow-sm transition hover:bg-blue-50 hover:text-blue-700">
+            <Link href="/contact" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-black text-white shadow-sm transition hover:bg-blue-700">
               お問い合わせ
+            </Link>
+            <Link href="/login" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-6 text-sm font-black text-slate-700 shadow-sm transition hover:bg-blue-50 hover:text-blue-700">
+              ログイン
             </Link>
           </div>
         </div>
@@ -135,7 +207,8 @@ function MarketingHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
-        <Link href="/lp" className="text-lg font-black text-slate-950">
+        <Link href="/lp" className="flex items-center gap-2 text-lg font-black text-slate-950">
+          <Image src="/icons/timecard-icon-192.png" alt="" width={28} height={28} className="rounded-lg" />
           ArcNest
         </Link>
         <nav className="flex items-center gap-2 text-sm font-bold">
@@ -182,7 +255,10 @@ function HeroScene() {
         </div>
         <div className="absolute bottom-0 left-0 w-56 rounded-[28px] border border-white/10 bg-white p-3 text-slate-950 shadow-2xl">
           <div className="rounded-2xl bg-slate-950 p-4 text-white">
-            <p className="text-xs font-bold text-blue-200">スマホ打刻</p>
+            <div className="flex items-center gap-2">
+              <Image src="/icons/timecard-icon-192.png" alt="" width={28} height={28} className="rounded-lg" />
+              <p className="text-xs font-bold text-blue-200">スマホ打刻</p>
+            </div>
             <p className="mt-4 text-3xl font-black">09:28</p>
             <button className="mt-6 h-12 w-full rounded-xl bg-blue-600 text-sm font-black text-white">出勤する</button>
           </div>
