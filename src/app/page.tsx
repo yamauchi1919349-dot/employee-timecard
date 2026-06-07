@@ -1,13 +1,5 @@
-import { Suspense } from "react";
-import {
-  RootEntryLoading,
-  RootEntryRedirect,
-} from "@/components/RootEntryRedirect";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return (
-    <Suspense fallback={<RootEntryLoading />}>
-      <RootEntryRedirect />
-    </Suspense>
-  );
+  redirect("/lp");
 }
