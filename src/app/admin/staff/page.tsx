@@ -8,6 +8,7 @@ import { EmploymentType, Profile, TenantRole } from "@/lib/types";
 
 type StaffFormState = {
   name: string;
+  employee_number: string;
   employment_type: EmploymentType | "";
   hourly_wage: string;
   fixed_salary: string;
@@ -37,6 +38,7 @@ function StaffAdminContent() {
   const [staff, setStaff] = useState<Profile[]>([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [employeeNumber, setEmployeeNumber] = useState("");
   const [role, setRole] = useState<TenantRole>("staff");
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "error">("success");
@@ -86,7 +88,7 @@ function StaffAdminContent() {
         Authorization: `Bearer ${session.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, email, role }),
+      body: JSON.stringify({ name, email, employee_number: employeeNumber, role }),
     });
     const payload = (await response.json()) as { message?: string };
     setSubmitting(false);
@@ -98,6 +100,7 @@ function StaffAdminContent() {
 
     setName("");
     setEmail("");
+    setEmployeeNumber("");
     setRole("staff");
     showMessage("招待メールを送信しました。");
     await loadStaff();
@@ -162,7 +165,7 @@ function StaffAdminContent() {
             <h2 className="text-xl font-black">招待メール送信</h2>
             <p className="text-sm text-slate-500">メールアドレスは認証に使うため、招待後はこの画面では編集できません。</p>
           </div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <label className="text-sm font-semibold text-slate-700">
               氏名
               <input
@@ -181,6 +184,19 @@ function StaffAdminContent() {
                 className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
                 required
               />
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              社員番号
+              <input
+                value={employeeNumber}
+                onChange={(event) => setEmployeeNumber(event.target.value)}
+                maxLength={64}
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
+                placeholder="例: 1001"
+              />
+              <span className="mt-1 block text-xs font-medium leading-5 text-slate-500">
+                給与ソフト連携用。未設定でも利用できます。
+              </span>
             </label>
             <label className="text-sm font-semibold text-slate-700">
               role
@@ -226,10 +242,11 @@ function StaffAdminContent() {
           {loading ? <p className="mt-4 text-sm text-slate-500">読み込み中...</p> : null}
 
           <div className="mt-5 hidden overflow-x-auto rounded-xl border border-slate-100 lg:block">
-            <table className="w-full min-w-[1120px] text-left text-sm">
+            <table className="w-full min-w-[1240px] text-left text-sm">
               <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">氏名</th>
+                  <th className="px-4 py-3">社員番号</th>
                   <th className="px-4 py-3">メール</th>
                   <th className="px-4 py-3">role</th>
                   <th className="px-4 py-3">雇用区分</th>
@@ -244,6 +261,7 @@ function StaffAdminContent() {
                 {staff.map((row) => (
                   <tr key={row.id} className="border-t border-slate-100">
                     <td className="px-4 py-3 font-bold">{row.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{row.employee_number ?? "-"}</td>
                     <td className="px-4 py-3 text-slate-600">{row.email ?? "-"}</td>
                     <td className="px-4 py-3">{row.role}</td>
                     <td className="px-4 py-3">{getEmploymentLabel(row.employment_type)}</td>
@@ -274,6 +292,7 @@ function StaffAdminContent() {
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <StaffMetric label="role" value={row.role} />
+                  <StaffMetric label="社員番号" value={row.employee_number ?? "-"} />
                   <StaffMetric label="雇用区分" value={getEmploymentLabel(row.employment_type)} />
                   <StaffMetric label="時給" value={formatCurrency(row.hourly_wage)} />
                   <StaffMetric label="固定給" value={formatCurrency(row.fixed_salary)} />
@@ -357,6 +376,7 @@ function EditStaffModal({
 }) {
   const [form, setForm] = useState<StaffFormState>(() => ({
     name: staff.name,
+    employee_number: staff.employee_number ?? "",
     employment_type: staff.employment_type ?? "",
     hourly_wage: staff.hourly_wage === null ? "" : String(staff.hourly_wage),
     fixed_salary: staff.fixed_salary === null ? "" : String(staff.fixed_salary),
@@ -378,6 +398,7 @@ function EditStaffModal({
       body: JSON.stringify({
         id: staff.id,
         name: form.name,
+        employee_number: form.employee_number,
         employment_type: form.employment_type || null,
         hourly_wage: form.hourly_wage === "" ? null : Number(form.hourly_wage),
         fixed_salary: form.fixed_salary === "" ? null : Number(form.fixed_salary),
@@ -430,6 +451,19 @@ function EditStaffModal({
               className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-500"
               readOnly
             />
+          </label>
+          <label className="text-sm font-semibold text-slate-700">
+            社員番号
+            <input
+              value={form.employee_number}
+              onChange={(event) => setForm((current) => ({ ...current, employee_number: event.target.value }))}
+              maxLength={64}
+              className="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-base outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
+              placeholder="例: 1001"
+            />
+            <span className="mt-1 block text-xs font-medium leading-5 text-slate-500">
+              給与ソフト連携用。未設定でも利用できます。
+            </span>
           </label>
           <label className="text-sm font-semibold text-slate-700">
             雇用区分

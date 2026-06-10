@@ -9,6 +9,7 @@ type AttendanceWithProfile = Attendance & {
     id?: string | null;
     name?: string | null;
     email?: string | null;
+    employee_number?: string | null;
     role?: string | null;
     hourly_wage?: number | null;
     fixed_salary?: number | null;
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("attendance")
-      .select("*, profiles(id,name,email,role,hourly_wage,fixed_salary)")
+      .select("*, profiles(id,name,email,employee_number,role,hourly_wage,fixed_salary)")
       .eq("company_id", profile.company_id)
       .gte("work_date", monthRange.start)
       .lte("work_date", monthRange.end)
@@ -137,6 +138,7 @@ function toMonthlyRow(row: AttendanceWithProfile, settings: CompanySettings) {
     userId: row.user_id,
     staffName: row.profiles?.name ?? "未登録スタッフ",
     staffEmail: row.profiles?.email ?? null,
+    employeeNumber: row.profiles?.employee_number ?? null,
     hourlyWage,
     fixedSalary,
     workDate: row.work_date,

@@ -37,6 +37,7 @@ export type Profile = {
   store_id: string | null;
   name: string;
   email: string | null;
+  employee_number: string | null;
   role: TenantRole;
   employment_type: EmploymentType | null;
   hourly_wage: number | null;

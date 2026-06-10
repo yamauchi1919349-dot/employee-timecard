@@ -5,11 +5,12 @@ import { EmploymentType } from "@/lib/types";
 const ADMIN_ROLES = new Set(["owner", "manager", "admin"]);
 const EMPLOYMENT_TYPES = new Set(["full_time", "part_time", "contract", "other"]);
 const STAFF_SELECT =
-  "id,user_id,company_id,store_id,name,email,role,employment_type,hourly_wage,fixed_salary,active,created_at";
+  "id,user_id,company_id,store_id,name,email,employee_number,role,employment_type,hourly_wage,fixed_salary,active,created_at";
 
 type StaffUpdateBody = {
   id?: string;
   name?: string;
+  employee_number?: string | null;
   employment_type?: EmploymentType | "" | null;
   hourly_wage?: number | string | null;
   fixed_salary?: number | string | null;
@@ -147,6 +148,9 @@ function buildStaffUpdates(body: StaffUpdateBody) {
     return NextResponse.json({ message: "雇用区分の指定が正しくありません。" }, { status: 400 });
   }
 
+  const employeeNumber = normalizeEmployeeNumber(body.employee_number);
+  if (employeeNumber instanceof NextResponse) return employeeNumber;
+
   const hourlyWage = normalizeMoney(body.hourly_wage, "時給");
   if (hourlyWage instanceof NextResponse) return hourlyWage;
 
@@ -155,11 +159,20 @@ function buildStaffUpdates(body: StaffUpdateBody) {
 
   return {
     name,
+    employee_number: employeeNumber,
     employment_type: employmentType,
     hourly_wage: hourlyWage,
     fixed_salary: fixedSalary,
     active: body.active === false ? false : true,
   };
+}
+
+function normalizeEmployeeNumber(value: string | null | undefined) {
+  const employeeNumber = value?.trim() || null;
+  if (employeeNumber && employeeNumber.length > 64) {
+    return NextResponse.json({ message: "社員番号は64文字以内で入力してください。" }, { status: 400 });
+  }
+  return employeeNumber;
 }
 
 function normalizeMoney(value: number | string | null | undefined, label: string) {

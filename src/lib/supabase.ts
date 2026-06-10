@@ -10,6 +10,7 @@ export type AuthProfile = {
   store_id: string | null;
   name: string;
   email: string | null;
+  employee_number: string | null;
   role: TenantRole;
   employment_type: EmploymentType | null;
   hourly_wage: number | null;
@@ -78,7 +79,7 @@ export async function getAuthenticatedProfile(request: Request) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,user_id,company_id,store_id,name,email,role,employment_type,hourly_wage,fixed_salary,active,terms_accepted_at,created_at")
+    .select("id,user_id,company_id,store_id,name,email,employee_number,role,employment_type,hourly_wage,fixed_salary,active,terms_accepted_at,created_at")
     .eq("user_id", user.id)
     .eq("active", true)
     .maybeSingle<AuthProfile>();

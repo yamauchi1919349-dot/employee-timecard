@@ -4,6 +4,7 @@ import { createSupabaseAdmin, getAuthenticatedProfile, TenantRole } from "@/lib/
 type InviteBody = {
   name?: string;
   email?: string;
+  employee_number?: string | null;
   role?: TenantRole;
   storeId?: string | null;
 };
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as InviteBody;
     const name = body.name?.trim();
     const email = body.email?.trim().toLowerCase();
+    const employeeNumber = normalizeEmployeeNumber(body.employee_number);
+    if (employeeNumber instanceof NextResponse) return employeeNumber;
     const role = body.role ?? "staff";
     const storeId = body.storeId?.trim() || null;
 
@@ -97,10 +100,11 @@ export async function POST(request: Request) {
         store_id: storeId,
         name,
         email,
+        employee_number: employeeNumber,
         role,
         active: true,
       })
-      .select("id,user_id,company_id,store_id,name,email,role,employment_type,hourly_wage,fixed_salary,active,created_at")
+      .select("id,user_id,company_id,store_id,name,email,employee_number,role,employment_type,hourly_wage,fixed_salary,active,created_at")
       .single();
 
     if (profileError) {
@@ -117,4 +121,12 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+}
+
+function normalizeEmployeeNumber(value: string | null | undefined) {
+  const employeeNumber = value?.trim() || null;
+  if (employeeNumber && employeeNumber.length > 64) {
+    return NextResponse.json({ message: "社員番号は64文字以内で入力してください。" }, { status: 400 });
+  }
+  return employeeNumber;
 }
