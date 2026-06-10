@@ -182,6 +182,30 @@ export default function LandingPage() {
       </section>
 
       <section className="px-4 py-14 sm:py-16">
+        <div className="mx-auto w-full max-w-6xl">
+          <article className="rounded-2xl border border-blue-100 bg-blue-50/70 p-6 shadow-sm sm:p-8">
+            <p className="text-sm font-black text-blue-700">Pricing</p>
+            <h2 className="mt-2 text-2xl font-black tracking-normal text-slate-950 sm:text-3xl">
+              創業応援価格について
+            </h2>
+            <div className="mt-4 grid gap-3 text-sm font-semibold leading-7 text-slate-700">
+              <p>現在、ArcNest Timecard は創業応援価格で提供しています。</p>
+              <p>料金は月額3,980円の基本料金に、スタッフ1名あたり月額100円を加えた形です。</p>
+              <p>今後、機能追加やサービス拡充に伴い料金改定を行う場合があります。</p>
+              <p>ただし、既存契約者については契約時の料金を維持する予定です。</p>
+              <p>ArcNestは、中小企業や小規模事業者が導入しやすいサービスを目指しています。</p>
+            </div>
+            <Link
+              href="/pricing"
+              className="mt-6 inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-6 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
+            >
+              料金プランを見る
+            </Link>
+          </article>
+        </div>
+      </section>
+
+      <section className="px-4 py-14 sm:py-16">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-black text-blue-700">Contact</p>
