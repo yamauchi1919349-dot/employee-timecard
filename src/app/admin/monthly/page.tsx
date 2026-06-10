@@ -4,11 +4,17 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { buildGenericMonthlyCsv, type MonthlyCsvPayload, type MonthlyCsvRow } from "@/lib/monthly-csv";
+import {
+  buildGenericMonthlyCsv,
+  buildPayrollImportCsv,
+  type MonthlyCsvPayload,
+  type MonthlyCsvRow,
+} from "@/lib/monthly-csv";
 import type { Profile, RoundingMethod, WorkRoundingMinutes } from "@/lib/types";
 
 type MonthlyPayload = MonthlyCsvPayload;
 type MonthlyRow = MonthlyCsvRow;
+type CsvFormat = "generic" | "payroll_import";
 
 export default function AdminMonthlyPage() {
   return (
@@ -26,6 +32,7 @@ function AdminMonthlyContent() {
   const [month, setMonth] = useState(() => getCurrentMonth());
   const [profileId, setProfileId] = useState("");
   const [payload, setPayload] = useState<MonthlyPayload | null>(null);
+  const [csvFormat, setCsvFormat] = useState<CsvFormat>("generic");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -37,12 +44,15 @@ function AdminMonthlyContent() {
   function handleCsvDownload() {
     if (!payload) return;
 
-    const csv = buildGenericMonthlyCsv(payload);
+    const csv = csvFormat === "payroll_import" ? buildPayrollImportCsv(payload) : buildGenericMonthlyCsv(payload);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `monthly-attendance-${payload.selectedMonth}.csv`;
+    anchor.download =
+      csvFormat === "payroll_import"
+        ? `payroll-import-${payload.selectedMonth}.csv`
+        : `monthly-attendance-${payload.selectedMonth}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -124,7 +134,7 @@ function AdminMonthlyContent() {
         </header>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
             <label className="text-sm font-semibold text-slate-700">
               月選択
               <input
@@ -149,6 +159,17 @@ function AdminMonthlyContent() {
                 ))}
               </select>
             </label>
+            <label className="text-sm font-semibold text-slate-700">
+              CSV形式
+              <select
+                value={csvFormat}
+                onChange={(event) => setCsvFormat(event.target.value as CsvFormat)}
+                className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base font-bold outline-none transition focus:border-blue-700 focus:ring-4 focus:ring-blue-50"
+              >
+                <option value="generic">汎用CSV</option>
+                <option value="payroll_import">給与ソフト取込用CSV（β）</option>
+              </select>
+            </label>
             <button
               type="button"
               onClick={handleCsvDownload}
@@ -158,6 +179,11 @@ function AdminMonthlyContent() {
               CSV出力
             </button>
           </div>
+          {csvFormat === "payroll_import" ? (
+            <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm font-semibold leading-6 text-amber-800">
+              給与ソフト取込用CSV（β）は、各給与ソフトへの取り込みを補助するためのデータです。取り込み前に、給与ソフト側のテンプレート・項目名・単位設定をご確認ください。社員番号が未設定のスタッフは空欄で出力されます。
+            </p>
+          ) : null}
         </section>
 
         {message ? (

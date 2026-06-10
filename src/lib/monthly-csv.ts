@@ -82,6 +82,86 @@ export function buildGenericMonthlyCsv(payload: MonthlyCsvPayload) {
   return `\uFEFF${csv}`;
 }
 
+export function buildPayrollImportCsv(payload: MonthlyCsvPayload) {
+  const headers = [
+    "対象月",
+    "社員番号",
+    "スタッフ名",
+    "メールアドレス",
+    "勤務日数",
+    "総労働時間",
+    "残業時間",
+    "休憩時間合計",
+    "勤務区分",
+    "備考",
+  ];
+  const rows = buildPayrollImportRows(payload.rows, payload.selectedMonth);
+  const csv = [headers, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+  return `\uFEFF${csv}`;
+}
+
+function buildPayrollImportRows(rows: MonthlyCsvRow[], month: string) {
+  const summaries = new Map<
+    string,
+    {
+      employeeNumber: string | null;
+      staffName: string;
+      staffEmail: string | null;
+      workedDays: number;
+      totalWorkMinutes: number;
+      overtimeMinutes: number;
+      breakMinutes: number;
+      workTypes: Set<string>;
+      hasUnclosedRows: boolean;
+    }
+  >();
+
+  rows.forEach((row) => {
+    const key = row.profileId ?? row.userId;
+    const summary =
+      summaries.get(key) ??
+      {
+        employeeNumber: row.employeeNumber,
+        staffName: row.staffName,
+        staffEmail: row.staffEmail,
+        workedDays: 0,
+        totalWorkMinutes: 0,
+        overtimeMinutes: 0,
+        breakMinutes: 0,
+        workTypes: new Set<string>(),
+        hasUnclosedRows: false,
+      };
+
+    summary.employeeNumber = summary.employeeNumber ?? row.employeeNumber;
+    summary.staffEmail = summary.staffEmail ?? row.staffEmail;
+    summary.workedDays += 1;
+    summary.workTypes.add(getWorkTypeLabel(row.workType));
+    summary.breakMinutes += row.breakMinutes;
+
+    if (row.clockOut) {
+      summary.totalWorkMinutes += row.roundedWorkMinutes;
+      summary.overtimeMinutes += row.overtimeMinutes;
+    } else {
+      summary.hasUnclosedRows = true;
+    }
+
+    summaries.set(key, summary);
+  });
+
+  return Array.from(summaries.values()).map((summary) => [
+    month,
+    summary.employeeNumber ?? "",
+    summary.staffName,
+    summary.staffEmail ?? "",
+    `${summary.workedDays}日`,
+    formatMinutes(summary.totalWorkMinutes),
+    formatMinutes(summary.overtimeMinutes),
+    formatMinutes(summary.breakMinutes),
+    Array.from(summary.workTypes).join(" / "),
+    summary.hasUnclosedRows ? "未退勤行あり" : "",
+  ]);
+}
+
 function buildStaffSummaryRows(rows: MonthlyCsvRow[], month: string, includePayroll: boolean) {
   const summaries = new Map<
     string,
