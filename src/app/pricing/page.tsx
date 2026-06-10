@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Metadata } from "next";
+import { MarketingLegalFooter } from "@/components/MarketingLegalFooter";
 
 const plans = [
   {
@@ -119,6 +120,8 @@ export default function PricingPage() {
           </section>
         </div>
       </section>
+
+      <MarketingLegalFooter />
     </main>
   );
 }

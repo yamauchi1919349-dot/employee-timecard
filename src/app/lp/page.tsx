@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Metadata } from "next";
+import { MarketingLegalFooter } from "@/components/MarketingLegalFooter";
 
 const painPoints = [
   {
@@ -199,6 +200,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <MarketingLegalFooter />
     </main>
   );
 }

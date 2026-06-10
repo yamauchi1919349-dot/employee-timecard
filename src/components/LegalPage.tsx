@@ -51,6 +51,9 @@ export function LegalPage({
           <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/privacy">
             プライバシーポリシー
           </Link>
+          <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/legal">
+            特定商取引法に基づく表記
+          </Link>
           <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/company">
             会社情報
           </Link>
