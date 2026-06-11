@@ -7,6 +7,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import {
   getRequestStatusLabel,
   getRequestTypeLabel,
+  getWorkTypeLabel,
+  SALES_WORK_TYPE_OPTIONS,
 } from "@/lib/time-edit";
 import { Profile, SalesWorkType } from "@/lib/types";
 
@@ -22,6 +24,7 @@ type EditRequest = {
   status: string;
   owner_comment: string | null;
   created_at: string;
+  attendance?: { work_type?: SalesWorkType | null } | null;
   profiles?: { name?: string | null; email?: string | null } | null;
 };
 
@@ -32,9 +35,11 @@ type EditHistory = {
   before_clock_in: string | null;
   before_clock_out: string | null;
   before_break_minutes: number | null;
+  before_work_type: SalesWorkType | null;
   after_clock_in: string | null;
   after_clock_out: string | null;
   after_break_minutes: number | null;
+  after_work_type: SalesWorkType | null;
   reason: string;
   owner_comment: string | null;
   source: string;
@@ -51,13 +56,6 @@ type DirectForm = {
   workType: SalesWorkType;
   reason: string;
 };
-
-const workTypeOptions: Array<{ value: SalesWorkType; label: string }> = [
-  { value: "normal", label: "通常勤務" },
-  { value: "paid_leave", label: "有給" },
-  { value: "half_day", label: "半休" },
-  { value: "other", label: "その他" },
-];
 
 export default function AdminTimeEditRequestsPage() {
   return (
@@ -211,12 +209,13 @@ function AdminTimeEditRequestsContent() {
             {loading ? <p className="text-sm font-bold text-slate-500">読み込み中...</p> : null}
           </div>
           <div className="mt-5 overflow-x-auto rounded-xl border border-slate-100">
-            <table className="w-full min-w-[1180px] text-left text-sm">
+            <table className="w-full min-w-[1260px] text-left text-sm">
               <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">申請日時</th>
                   <th className="px-4 py-3">staff</th>
                   <th className="px-4 py-3">対象日</th>
+                  <th className="px-4 py-3">勤務区分</th>
                   <th className="px-4 py-3">修正種別</th>
                   <th className="px-4 py-3">希望出勤</th>
                   <th className="px-4 py-3">希望退勤</th>
@@ -232,6 +231,7 @@ function AdminTimeEditRequestsContent() {
                     <td className="px-4 py-3">{formatDateTime(request.created_at)}</td>
                     <td className="px-4 py-3 font-bold">{request.profiles?.name ?? "未登録"}</td>
                     <td className="px-4 py-3">{request.target_date}</td>
+                    <td className="px-4 py-3">{formatWorkType(request.attendance?.work_type)}</td>
                     <td className="px-4 py-3">{getRequestTypeLabel(request.request_type)}</td>
                     <td className="px-4 py-3">{formatTime(request.requested_clock_in)}</td>
                     <td className="px-4 py-3">{formatTime(request.requested_clock_out)}</td>
@@ -286,7 +286,7 @@ function AdminTimeEditRequestsContent() {
             <label className="text-sm font-semibold text-slate-700">
               勤務区分
               <select value={directForm.workType} onChange={(event) => setDirectForm((current) => ({ ...current, workType: event.target.value as SalesWorkType }))} className="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 font-bold outline-none focus:border-blue-700">
-                {workTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                {SALES_WORK_TYPE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
             <label className="text-sm font-semibold text-slate-700">
@@ -327,6 +327,7 @@ function AdminTimeEditRequestsContent() {
                 <p className="mt-2 text-sm text-slate-600">
                   出勤 {formatTime(history.before_clock_in)} → {formatTime(history.after_clock_in)} / 退勤 {formatTime(history.before_clock_out)} → {formatTime(history.after_clock_out)} / 休憩 {history.before_break_minutes ?? "-"}分 → {history.after_break_minutes ?? "-"}分
                 </p>
+                <p className="mt-1 text-sm text-slate-600">勤務区分 {formatWorkType(history.before_work_type)} → {formatWorkType(history.after_work_type)}</p>
               </article>
             ))}
           </div>
@@ -364,6 +365,10 @@ function formatTime(value: string | null) {
     minute: "2-digit",
     hour12: false,
   }).format(new Date(value));
+}
+
+function formatWorkType(value?: string | null) {
+  return value ? getWorkTypeLabel(value) : "-";
 }
 
 function getDateKey(date: Date) {

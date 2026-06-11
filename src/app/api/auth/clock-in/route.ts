@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { getBusinessDate } from "@/lib/attendance";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
+import { SALES_WORK_TYPES } from "@/lib/time-edit";
 import { SalesWorkType } from "@/lib/types";
-
-const workTypes: SalesWorkType[] = ["normal", "paid_leave", "half_day", "other"];
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +17,7 @@ export async function POST(request: Request) {
 
     const supabase = createSupabaseAdmin();
     const workDate = getBusinessDate();
-    const workType = workTypes.includes(body.workType ?? "normal")
+    const workType = SALES_WORK_TYPES.includes(body.workType ?? "normal")
       ? body.workType ?? "normal"
       : "normal";
     const breakMinutes =

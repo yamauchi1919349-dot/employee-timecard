@@ -1,5 +1,12 @@
 export type WorkType = "normal" | "kitchen_car";
-export type SalesWorkType = "normal" | "paid_leave" | "half_day" | "other";
+export type SalesWorkType =
+  | "normal"
+  | "paid_leave"
+  | "holiday_work"
+  | "late"
+  | "early_leave"
+  | "half_day"
+  | "other";
 export type AttendanceStatus = "not_clocked_in" | "working" | "clocked_out";
 export type CalendarDayType = "workday" | "holiday";
 export type SalesDayType = "workday" | "holiday" | "shift";

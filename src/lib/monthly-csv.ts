@@ -255,10 +255,13 @@ function escapeCsvCell(value: string) {
 
 function getWorkTypeLabel(workType: string) {
   const labels: Record<string, string> = {
-    normal: "通常勤務",
-    paid_leave: "有給",
+    normal: "通常出勤",
+    holiday_work: "休日出勤",
+    late: "遅刻",
+    early_leave: "早退",
     half_day: "半休",
     other: "その他",
+    paid_leave: "有給（旧区分）",
   };
   return labels[workType] ?? workType;
 }

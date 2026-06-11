@@ -7,6 +7,8 @@ import { formatTime } from "@/lib/attendance";
 import {
   getRequestStatusLabel,
   getRequestTypeLabel,
+  getWorkTypeLabel,
+  SALES_WORK_TYPE_OPTIONS,
 } from "@/lib/time-edit";
 import { AppNotification, Attendance, SalesWorkType, TimeEditHistory, TimeEditRequest, TimeEditRequestType } from "@/lib/types";
 
@@ -51,12 +53,7 @@ type RequestForm = {
 
 const BASIC_WORK_MINUTES = 480;
 
-const workTypeOptions: { value: SalesWorkType; label: string }[] = [
-  { value: "normal", label: "通常勤務" },
-  { value: "paid_leave", label: "有給" },
-  { value: "half_day", label: "半休" },
-  { value: "other", label: "その他" },
-];
+const workTypeOptions = SALES_WORK_TYPE_OPTIONS;
 
 const breakOptions = [
   { value: 60, label: "1時間あり" },
@@ -532,7 +529,7 @@ function CalendarTab({
                 <span className="absolute bottom-1 flex gap-0.5">
                   {hasWork ? <span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> : null}
                   {isHoliday ? <span className={`h-1.5 w-1.5 rounded-full ${isSavedHoliday ? "bg-white" : "bg-slate-300"}`} /> : null}
-                  {dayRows.some((row) => row.work_type === "paid_leave" || row.work_type === "other") ? (
+                  {dayRows.some((row) => isSpecialWorkType(row.work_type)) ? (
                     <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
                   ) : null}
                 </span>
@@ -976,7 +973,7 @@ function CalendarLegend() {
     ["bg-blue-500", "出勤日"],
     ["bg-rose-400", "休日"],
     ["bg-slate-300", "欠勤"],
-    ["bg-orange-400", "有給・その他"],
+    ["bg-orange-400", "勤務区分あり"],
   ];
 
   return (
@@ -1047,8 +1044,9 @@ function getWorkMinutes(row: SalesAttendance | null, now: Date | null) {
   return Math.max(0, raw - row.break_minutes);
 }
 
-function getWorkTypeLabel(value: SalesWorkType) {
-  return workTypeOptions.find((option) => option.value === value)?.label ?? value;
+
+function isSpecialWorkType(value: SalesWorkType) {
+  return value !== "normal";
 }
 
 function getBreakLabel(minutes: number) {

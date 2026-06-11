@@ -9,7 +9,20 @@ export const TIME_EDIT_REQUEST_TYPES: TimeEditRequestType[] = [
 ];
 
 export const TIME_EDIT_STATUSES: TimeEditRequestStatus[] = ["pending", "approved", "rejected"];
-export const SALES_WORK_TYPES: SalesWorkType[] = ["normal", "paid_leave", "half_day", "other"];
+
+export const SALES_WORK_TYPE_OPTIONS: Array<{ value: SalesWorkType; label: string }> = [
+  { value: "normal", label: "通常出勤" },
+  { value: "holiday_work", label: "休日出勤" },
+  { value: "late", label: "遅刻" },
+  { value: "early_leave", label: "早退" },
+  { value: "half_day", label: "半休" },
+  { value: "other", label: "その他" },
+];
+
+export const SALES_WORK_TYPES: SalesWorkType[] = [
+  ...SALES_WORK_TYPE_OPTIONS.map((option) => option.value),
+  "paid_leave",
+];
 
 export function normalizeRole(role?: string | null) {
   return role?.trim().toLowerCase() ?? "";
@@ -37,10 +50,13 @@ export function getRequestStatusLabel(status: string) {
 
 export function getWorkTypeLabel(type: string) {
   const labels: Record<string, string> = {
-    normal: "通常勤務",
-    paid_leave: "有給",
+    normal: "通常出勤",
+    holiday_work: "休日出勤",
+    late: "遅刻",
+    early_leave: "早退",
     half_day: "半休",
     other: "その他",
+    paid_leave: "有給（旧区分）",
   };
   return labels[type] ?? type;
 }
