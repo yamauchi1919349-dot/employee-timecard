@@ -4,6 +4,7 @@ import { getStripe } from "@/lib/stripe";
 import { createSupabaseAdmin } from "@/lib/supabase";
 
 const FIXED_MONTHLY_PLAN = "monthly_fixed_3980";
+const GRACE_PERIOD_DAYS = 7;
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -70,27 +71,39 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     ? await getStripe().subscriptions.retrieve(subscriptionId)
     : null;
 
-  await updateCompanyBilling(companyId, {
+  await updateCompanyBilling(companyId, withBillingRecovery({
     stripe_customer_id: customerId,
     stripe_subscription_id: subscriptionId,
     subscription_status: subscription?.status ?? "active",
     current_period_end: subscription ? toTimestamp(getCurrentPeriodEnd(subscription)) : null,
     plan: session.metadata?.plan ?? FIXED_MONTHLY_PLAN,
     billing_email: session.customer_details?.email ?? null,
-  });
+  }));
 }
 
 async function updateCompanyFromSubscription(subscription: Stripe.Subscription) {
   const companyId = await findCompanyIdForSubscription(subscription);
   if (!companyId) return;
 
-  await updateCompanyBilling(companyId, {
+  const updates = {
     stripe_customer_id: getStripeId(subscription.customer),
     stripe_subscription_id: subscription.id,
     subscription_status: subscription.status,
     current_period_end: toTimestamp(getCurrentPeriodEnd(subscription)),
     plan: subscription.metadata?.plan ?? FIXED_MONTHLY_PLAN,
-  });
+  };
+
+  if (subscription.status === "past_due") {
+    await startGracePeriod(companyId, updates);
+    return;
+  }
+
+  await updateCompanyBilling(
+    companyId,
+    subscription.status === "active" || subscription.status === "trialing"
+      ? withBillingRecovery(updates)
+      : withGracePeriodCleared(updates),
+  );
 }
 
 async function handleInvoicePayment(invoice: Stripe.Invoice, result: "payment_succeeded" | "payment_failed") {
@@ -100,19 +113,26 @@ async function handleInvoicePayment(invoice: Stripe.Invoice, result: "payment_su
 
   if (subscriptionId) {
     const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
-    await updateCompanyBilling(companyId, {
+    const updates = {
       stripe_customer_id: getStripeId(subscription.customer),
       stripe_subscription_id: subscription.id,
       subscription_status: result === "payment_failed" ? "past_due" : subscription.status,
       current_period_end: toTimestamp(getCurrentPeriodEnd(subscription)),
       plan: subscription.metadata?.plan ?? FIXED_MONTHLY_PLAN,
-    });
+    };
+    if (result === "payment_failed" || updates.subscription_status === "past_due") {
+      await startGracePeriod(companyId, updates);
+    } else {
+      await updateCompanyBilling(companyId, withBillingRecovery(updates));
+    }
     return;
   }
 
-  await updateCompanyBilling(companyId, {
-    subscription_status: result === "payment_failed" ? "past_due" : "active",
-  });
+  if (result === "payment_failed") {
+    await startGracePeriod(companyId, { subscription_status: "past_due" });
+  } else {
+    await updateCompanyBilling(companyId, withBillingRecovery({ subscription_status: "active" }));
+  }
 }
 
 async function findCompanyIdForSubscription(subscription: Stripe.Subscription) {
@@ -157,6 +177,45 @@ async function updateCompanyBilling(companyId: string, values: Record<string, st
     .update(values)
     .eq("id", companyId);
   if (error) throw error;
+}
+
+async function startGracePeriod(companyId: string, values: Record<string, string | null>) {
+  const supabase = createSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("companies")
+    .select("billing_grace_period_started_at,billing_grace_period_ends_at")
+    .eq("id", companyId)
+    .maybeSingle<{ billing_grace_period_started_at: string | null; billing_grace_period_ends_at: string | null }>();
+  if (error) throw error;
+
+  const now = new Date();
+  const graceStartedAt = data?.billing_grace_period_started_at ?? now.toISOString();
+  const graceEndsAt =
+    data?.billing_grace_period_ends_at ??
+    new Date(now.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  await updateCompanyBilling(companyId, {
+    ...values,
+    subscription_status: "past_due",
+    billing_grace_period_started_at: graceStartedAt,
+    billing_grace_period_ends_at: graceEndsAt,
+  });
+}
+
+function withBillingRecovery(values: Record<string, string | null>) {
+  return {
+    ...values,
+    billing_grace_period_started_at: null,
+    billing_grace_period_ends_at: null,
+  };
+}
+
+function withGracePeriodCleared(values: Record<string, string | null>) {
+  return {
+    ...values,
+    billing_grace_period_started_at: null,
+    billing_grace_period_ends_at: null,
+  };
 }
 
 function getStripeId(value: string | { id: string } | null | undefined): string | null {

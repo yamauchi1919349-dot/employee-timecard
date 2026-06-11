@@ -5,6 +5,7 @@ import {
   isWorkRoundingMinutes,
   normalizeCompanySettings,
 } from "@/lib/admin-settings";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 
 const ADMIN_ROLES = new Set(["owner", "manager", "admin"]);
@@ -84,6 +85,8 @@ async function requireAdminProfile(request: Request) {
   if (!ADMIN_ROLES.has(role)) {
     return NextResponse.json({ message: "管理設定を操作する権限がありません。" }, { status: 403 });
   }
+  const billingRestriction = await requireActiveCompanySubscription(profile);
+  if (billingRestriction) return billingRestriction;
 
   return profile;
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { EmploymentType } from "@/lib/types";
 
@@ -133,6 +134,8 @@ async function requireAdminProfile(request: Request) {
   if (!ADMIN_ROLES.has(role)) {
     return NextResponse.json({ message: "スタッフ管理を操作する権限がありません。" }, { status: 403 });
   }
+  const billingRestriction = await requireActiveCompanySubscription(profile);
+  if (billingRestriction) return billingRestriction;
 
   return profile;
 }

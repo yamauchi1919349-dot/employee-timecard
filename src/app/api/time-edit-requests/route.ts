@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { parseDateTimeLocal, TIME_EDIT_REQUEST_TYPES, normalizeRole } from "@/lib/time-edit";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { TimeEditRequestType } from "@/lib/types";
@@ -26,6 +27,8 @@ export async function GET(request: Request) {
   try {
     const profile = await getAuthenticatedProfile(request);
     if (!profile) return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
+    const billingRestriction = await requireActiveCompanySubscription(profile);
+    if (billingRestriction) return billingRestriction;
 
     const role = normalizeRole(profile.role);
     const supabase = createSupabaseAdmin();
@@ -64,6 +67,8 @@ export async function POST(request: Request) {
         { status: 401 },
       );
     }
+    const billingRestriction = await requireActiveCompanySubscription(profile);
+    if (billingRestriction) return billingRestriction;
 
     const role = normalizeRole(profile.role);
     if (role !== "staff") {

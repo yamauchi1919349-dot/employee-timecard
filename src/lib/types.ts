@@ -24,6 +24,8 @@ export type Company = {
   stripe_subscription_id?: string | null;
   subscription_status?: string | null;
   current_period_end?: string | null;
+  billing_grace_period_started_at?: string | null;
+  billing_grace_period_ends_at?: string | null;
   billing_email?: string | null;
   work_rounding_minutes: WorkRoundingMinutes;
   rounding_method: RoundingMethod;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBusinessDate } from "@/lib/attendance";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { SALES_WORK_TYPES } from "@/lib/time-edit";
 import { SalesWorkType } from "@/lib/types";
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
     if (!profile) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
     }
+    const billingRestriction = await requireActiveCompanySubscription(profile);
+    if (billingRestriction) return billingRestriction;
 
     const supabase = createSupabaseAdmin();
     const workDate = getBusinessDate();

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 
 type CalendarDayBody = {
@@ -14,6 +15,8 @@ export async function POST(request: Request) {
     if (!profile) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
     }
+    const billingRestriction = await requireActiveCompanySubscription(profile);
+    if (billingRestriction) return billingRestriction;
 
     const body = (await request.json().catch(() => ({}))) as CalendarDayBody;
     const date = body.date?.trim();

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardLegalLinks } from "@/components/DashboardLegalLinks";
 import { formatTime } from "@/lib/attendance";
+import { getBillingRestrictionMessage, isCompanySubscriptionActive } from "@/lib/billing-status";
 import {
   getRequestStatusLabel,
   getRequestTypeLabel,
@@ -27,7 +28,16 @@ type MonthlySummary = {
 };
 
 type TimecardPayload = {
-  company: { id: string; name: string; plan?: string } | null;
+  company: {
+    id: string;
+    name: string;
+    plan?: string;
+    subscription_status?: string | null;
+    billing_grace_period_started_at?: string | null;
+    billing_grace_period_ends_at?: string | null;
+  } | null;
+  billingRestricted?: boolean;
+  message?: string;
   workDate: string;
   selectedMonth: string;
   todayLog: SalesAttendance | null;
@@ -99,6 +109,8 @@ export function SalesTimecardApp() {
   const monthlyRows = payload?.monthlyRows ?? payload?.ownMonthRows ?? [];
   const summary = payload?.summary ?? emptySummary();
   const unreadCount = notifications.filter((notification) => !notification.read_at).length;
+  const billingRestricted =
+    Boolean(payload?.billingRestricted) || (payload?.company ? !isCompanySubscriptionActive(payload.company) : false);
 
   const loadData = useCallback(async () => {
     if (!session) return;
@@ -263,6 +275,23 @@ export function SalesTimecardApp() {
     if (response.ok) await loadTimeEditData();
   }
 
+  if (payload && billingRestricted) {
+    return (
+      <main data-route="sales-timecard-app-billing-restricted" className="min-h-screen bg-white px-5 pb-10 pt-8 text-[#0F172A]">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-4">
+          <AppHeader
+            companyName={payload.company?.name ?? "Timecard"}
+            userName={profile?.name ?? ""}
+            onRefresh={loadData}
+          />
+          <StaffBillingRestrictedCard message={payload.message ?? getBillingRestrictionMessage()} />
+          <OtherTab onSignOut={signOut} />
+          <DashboardLegalLinks />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main data-route="sales-timecard-app" className="min-h-screen bg-white pb-28 pt-8 text-[#0F172A]">
       <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-5">
@@ -342,6 +371,19 @@ export function SalesTimecardApp() {
         />
       ) : null}
     </main>
+  );
+}
+
+function StaffBillingRestrictedCard({ message }: { message: string }) {
+  return (
+    <section className="rounded-2xl bg-amber-50 p-5 shadow-sm ring-1 ring-amber-100">
+      <p className="text-sm font-black text-amber-700">利用開始手続きが必要です</p>
+      <h2 className="mt-2 text-2xl font-black tracking-normal text-slate-950">管理者による利用開始手続きが必要です</h2>
+      <p className="mt-3 text-sm font-bold leading-7 text-slate-600">{message}</p>
+      <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
+        staffアカウントでは支払い手続きはできません。会社のownerに確認してください。
+      </p>
+    </section>
   );
 }
 

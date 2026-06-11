@@ -6,6 +6,7 @@ import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardLegalLinks } from "@/components/DashboardLegalLinks";
 import { SalesTimecardApp } from "@/components/SalesTimecardApp";
+import { isBillingGracePeriodActive, isCompanySubscriptionActive } from "@/lib/billing-status";
 
 type DashboardPayload = {
   company: {
@@ -16,6 +17,8 @@ type DashboardPayload = {
     stripe_subscription_id?: string | null;
     subscription_status?: string | null;
     current_period_end?: string | null;
+    billing_grace_period_started_at?: string | null;
+    billing_grace_period_ends_at?: string | null;
     billing_email?: string | null;
   } | null;
   workDate: string;
@@ -66,6 +69,9 @@ function DashboardContent({ role }: { role: string }) {
   const [loading, setLoading] = useState(true);
   const [billingLoading, setBillingLoading] = useState<"checkout" | "portal" | null>(null);
   const displayedMessage = message ?? checkoutMessage;
+  const billingAllowed = isCompanySubscriptionActive(data?.company);
+  const ownerBillingRestricted = role === "owner" && !billingAllowed;
+  const nonOwnerBillingRestricted = role !== "owner" && !billingAllowed;
 
   async function loadDashboard() {
     if (!session) return;
@@ -148,40 +154,46 @@ function DashboardContent({ role }: { role: string }) {
           </div>
         ) : null}
 
-        <nav className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <AdminMenuCard
-            href="/admin/monthly"
-            label="月次集計"
-            description="勤怠実績、丸め後の労働時間、CSV出力を確認します。"
-          />
-          <AdminMenuCard
-            href="/admin/staff"
-            label="スタッフ管理"
-            description="スタッフ情報、雇用区分、時給、固定給、有効状態を管理します。"
-          />
-          <AdminMenuCard
-            href="/admin/settings"
-            label="管理設定"
-            description="勤怠ルール、残業開始時間、給与計算表示を設定します。"
-          />
-          {role === "owner" ? (
+        {billingAllowed ? (
+          <nav className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <AdminMenuCard
-              href="/admin/time-edit-requests"
-              label="打刻修正"
-              description="修正依頼の承認・却下と、ownerによる直接修正を行います。"
+              href="/admin/monthly"
+              label="月次集計"
+              description="勤怠実績、丸め後の労働時間、CSV出力を確認します。"
             />
-          ) : null}
-        </nav>
+            <AdminMenuCard
+              href="/admin/staff"
+              label="スタッフ管理"
+              description="スタッフ情報、雇用区分、時給、固定給、有効状態を管理します。"
+            />
+            <AdminMenuCard
+              href="/admin/settings"
+              label="管理設定"
+              description="勤怠ルール、残業開始時間、給与計算表示を設定します。"
+            />
+            {role === "owner" ? (
+              <AdminMenuCard
+                href="/admin/time-edit-requests"
+                label="打刻修正"
+                description="修正依頼の承認・却下と、ownerによる直接修正を行います。"
+              />
+            ) : null}
+          </nav>
+        ) : null}
 
         {role === "owner" ? (
           <BillingCard
             company={data?.company ?? null}
+            restricted={ownerBillingRestricted}
             loading={billingLoading}
             onCheckout={() => openBillingSession("checkout")}
             onPortal={() => openBillingSession("portal")}
           />
         ) : null}
 
+        {nonOwnerBillingRestricted ? <AdminBillingRestrictedNotice /> : null}
+
+        {billingAllowed ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -218,6 +230,7 @@ function DashboardContent({ role }: { role: string }) {
             </table>
           </div>
         </section>
+        ) : null}
 
         <DashboardLegalLinks />
       </div>
@@ -324,31 +337,61 @@ function AdminMenuCard({
   );
 }
 
+function AdminBillingRestrictedNotice() {
+  return (
+    <section className="rounded-2xl border border-amber-100 bg-amber-50 p-6 shadow-sm sm:p-8">
+      <p className="text-sm font-black text-amber-700">利用開始手続きが必要です</p>
+      <h2 className="mt-2 text-2xl font-black text-slate-950">管理者による支払い登録をお待ちください</h2>
+      <p className="mt-3 text-sm font-semibold leading-7 text-slate-600">
+        ArcNest Timecardを利用するには、会社のownerが7日間無料トライアルを開始する必要があります。
+      </p>
+    </section>
+  );
+}
+
 function BillingCard({
   company,
+  restricted,
   loading,
   onCheckout,
   onPortal,
 }: {
   company: DashboardPayload["company"];
+  restricted?: boolean;
   loading: "checkout" | "portal" | null;
   onCheckout: () => void;
   onPortal: () => void;
 }) {
   const status = company?.subscription_status ?? "未契約";
-  const canOpenPortal = Boolean(company?.stripe_customer_id && company?.stripe_subscription_id);
-  const isContracted = ["active", "trialing", "past_due", "unpaid"].includes(company?.subscription_status ?? "");
+  const canOpenPortal = Boolean(company?.stripe_customer_id);
+  const canUsePortalFirst = canOpenPortal && company?.subscription_status !== null && company?.subscription_status !== undefined;
+  const graceActive = isBillingGracePeriodActive(company);
+  const graceExpired = status === "past_due" && !graceActive;
+  const suspended = restricted || graceExpired;
+  const needsInitialCheckout = !company?.stripe_customer_id;
 
   return (
-    <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm sm:p-6">
+    <section className={`rounded-2xl border border-blue-100 bg-white shadow-sm ${restricted ? "p-6 sm:p-8" : "p-5 sm:p-6"}`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-sm font-bold text-blue-700">支払い管理</p>
-          <h2 className="mt-2 text-xl font-black text-slate-950">ArcNest Timecard 月額利用料</h2>
+          <h2 className={`${restricted ? "mt-3 text-3xl" : "mt-2 text-xl"} font-black text-slate-950`}>
+            {suspended
+              ? needsInitialCheckout
+                ? "7日間無料トライアルを開始してください"
+                : "お支払い確認が取れないため利用を一時停止しています"
+              : "ArcNest Timecard 月額利用料"}
+          </h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
             7日間無料トライアル終了後、月額3,980円（税込）の固定サブスクリプションとして自動課金されます。
             カード情報はStripeで安全に管理されます。
           </p>
+          {graceActive && company?.billing_grace_period_ends_at ? (
+            <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800">
+              お支払いを確認できません。猶予期間中です。{formatDate(company.billing_grace_period_ends_at)}
+              までにお支払い方法をご確認ください。
+            </p>
+          ) : null}
           <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold">
             <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
               契約状態: {getSubscriptionStatusLabel(status)}
@@ -361,7 +404,7 @@ function BillingCard({
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
-          {isContracted && canOpenPortal ? (
+          {canUsePortalFirst ? (
             <button
               type="button"
               onClick={onPortal}

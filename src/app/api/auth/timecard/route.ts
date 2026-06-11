@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { BASIC_WORK_MINUTES, getBusinessDate } from "@/lib/attendance";
+import { getBillingRestrictionMessage, isCompanySubscriptionActive } from "@/lib/billing-status";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance } from "@/lib/types";
 
@@ -26,10 +27,27 @@ export async function GET(request: Request) {
 
     const { data: company, error: companyError } = await supabase
       .from("companies")
-      .select("id,name,plan")
+      .select("id,name,plan,subscription_status,billing_grace_period_started_at,billing_grace_period_ends_at")
       .eq("id", profile.company_id)
       .maybeSingle();
     if (companyError) throw companyError;
+
+    if (!isCompanySubscriptionActive(company)) {
+      return NextResponse.json({
+        profile,
+        company,
+        billingRestricted: true,
+        message: getBillingRestrictionMessage(),
+        workDate,
+        selectedMonth: month,
+        todayLog: null,
+        attendance: [],
+        calendarRows: [],
+        monthlyRows: [],
+        ownMonthRows: [],
+        summary: summarize([]),
+      });
+    }
 
     let monthQuery = supabase
       .from("attendance")

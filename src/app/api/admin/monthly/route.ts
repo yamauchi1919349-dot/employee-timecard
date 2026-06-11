@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { APP_TIME_ZONE } from "@/lib/attendance";
 import { normalizeCompanySettings, roundDateToInterval } from "@/lib/admin-settings";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance, CompanySettings } from "@/lib/types";
 
@@ -32,6 +33,8 @@ export async function GET(request: Request) {
         { status: 403 },
       );
     }
+    const billingRestriction = await requireActiveCompanySubscription(profile);
+    if (billingRestriction) return billingRestriction;
 
     const url = new URL(request.url);
     const month = url.searchParams.get("month") || getCurrentMonth();

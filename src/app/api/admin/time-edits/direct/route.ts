@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { parseDateTimeLocal, SALES_WORK_TYPES, normalizeRole } from "@/lib/time-edit";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance, SalesWorkType } from "@/lib/types";
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
     if (normalizeRole(owner.role) !== "owner") {
       return NextResponse.json({ message: "owner権限が必要です。" }, { status: 403 });
     }
+    const billingRestriction = await requireActiveCompanySubscription(owner);
+    if (billingRestriction) return billingRestriction;
 
     const body = (await request.json()) as DirectBody;
     const profileId = body.profileId?.trim();

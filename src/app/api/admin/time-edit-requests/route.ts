@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { getRequestTypeLabel, normalizeRole } from "@/lib/time-edit";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance } from "@/lib/types";
@@ -146,6 +147,8 @@ async function requireOwner(request: Request) {
   if (normalizeRole(profile.role) !== "owner") {
     return NextResponse.json({ message: "owner権限が必要です。" }, { status: 403 });
   }
+  const billingRestriction = await requireActiveCompanySubscription(profile);
+  if (billingRestriction) return billingRestriction;
   return profile;
 }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { createSupabaseAdmin, getAuthenticatedProfile, TenantRole } from "@/lib/supabase";
 
 type InviteBody = {
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
     if (inviterRole === "manager" && role === "owner") {
       return NextResponse.json({ message: "manager は owner を招待できません。" }, { status: 403 });
     }
+    const billingRestriction = await requireActiveCompanySubscription(inviter);
+    if (billingRestriction) return billingRestriction;
 
     const supabase = createSupabaseAdmin();
     const { data: existingProfile, error: duplicateError } = await supabase
