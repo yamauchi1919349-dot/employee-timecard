@@ -233,19 +233,22 @@ export default function LandingPage() {
 function MarketingHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3">
         <Link href="/lp" className="flex items-center gap-2 text-lg font-black text-slate-950">
           <Image src="/arcnest-logo.png" alt="ArcNest Logo" width={28} height={28} className="rounded-lg object-contain" />
           ArcNest
         </Link>
-        <nav className="flex items-center gap-2 text-sm font-bold">
-          <Link href="/pricing" className="rounded-xl px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-blue-700">
+        <nav className="flex flex-wrap items-center justify-end gap-1 text-xs font-bold sm:gap-2 sm:text-sm">
+          <Link href="/signup" className="rounded-xl bg-blue-600 px-3 py-2 text-white shadow-sm transition hover:bg-blue-700">
+            新規登録
+          </Link>
+          <Link href="/pricing" className="rounded-xl px-2 py-2 text-slate-600 hover:bg-slate-50 hover:text-blue-700 sm:px-3">
             料金
           </Link>
-          <Link href="/contact" className="hidden rounded-xl px-3 py-2 text-slate-600 hover:bg-slate-50 hover:text-blue-700 sm:inline-flex">
+          <Link href="/contact" className="rounded-xl px-2 py-2 text-slate-600 hover:bg-slate-50 hover:text-blue-700 sm:px-3">
             お問い合わせ
           </Link>
-          <Link href="/login" className="rounded-xl bg-slate-950 px-4 py-2 text-white hover:bg-blue-700">
+          <Link href="/login" className="rounded-xl bg-slate-950 px-3 py-2 text-white hover:bg-blue-700 sm:px-4">
             ログイン
           </Link>
         </nav>

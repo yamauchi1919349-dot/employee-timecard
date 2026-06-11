@@ -115,6 +115,16 @@ function LoginForm() {
           </button>
         </form>
 
+        <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 text-center shadow-sm">
+          <p className="text-sm font-semibold text-slate-700">はじめて利用する企業の方</p>
+          <Link
+            href="/signup"
+            className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700"
+          >
+            新規企業登録
+          </Link>
+        </div>
+
         <Link href="/forgot-password" className="text-center text-sm font-semibold text-indigo-600">
           パスワードを忘れた方
         </Link>
