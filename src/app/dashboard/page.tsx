@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { DashboardLegalLinks } from "@/components/DashboardLegalLinks";
 import { SalesTimecardApp } from "@/components/SalesTimecardApp";
 
 type DashboardPayload = {
@@ -24,14 +25,6 @@ type AuthAttendance = {
     role?: string | null;
   } | null;
 };
-
-const legalLinks = [
-  { href: "/terms", label: "利用規約" },
-  { href: "/privacy", label: "プライバシーポリシー" },
-  { href: "/legal", label: "特定商取引法に基づく表記" },
-  { href: "/company", label: "会社情報" },
-  { href: "/contact", label: "お問い合わせ" },
-];
 
 export default function DashboardPage() {
   return (
@@ -112,7 +105,6 @@ function DashboardContent({ role }: { role: string }) {
               >
                 ログアウト
               </button>
-              <LegalLinks />
             </div>
           </div>
         </header>
@@ -184,6 +176,8 @@ function DashboardContent({ role }: { role: string }) {
             </table>
           </div>
         </section>
+
+        <DashboardLegalLinks />
       </div>
     </main>
   );
@@ -259,25 +253,9 @@ function TermsAcceptanceScreen({
           </div>
         </section>
 
-        <LegalLinks />
+        <DashboardLegalLinks />
       </div>
     </main>
-  );
-}
-
-function LegalLinks() {
-  return (
-    <nav className="flex flex-wrap gap-2 text-xs font-bold text-slate-500 sm:text-sm">
-      {legalLinks.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className="rounded-lg bg-slate-50 px-3 py-2 ring-1 ring-slate-200 transition hover:bg-blue-50 hover:text-blue-700"
-        >
-          {link.label}
-        </Link>
-      ))}
-    </nav>
   );
 }
 

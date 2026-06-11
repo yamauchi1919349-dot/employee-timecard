@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { DashboardLegalLinks } from "@/components/DashboardLegalLinks";
 import { formatTime } from "@/lib/attendance";
 import {
   getRequestStatusLabel,
@@ -288,6 +289,8 @@ export function SalesTimecardApp() {
         ) : null}
 
         {activeTab === "other" ? <OtherTab onSignOut={signOut} /> : null}
+
+        <DashboardLegalLinks />
       </div>
 
       <BottomTabs activeTab={activeTab} onChange={setActiveTab} />
