@@ -454,7 +454,7 @@ function getCheckoutMessage() {
     return "お支払い手続きが完了しました。契約状態はStripeからの通知後に反映されます。";
   }
   if (checkout === "cancel") {
-    return "お支払い手続きはキャンセルされました。";
+    return "決済手続きがキャンセルされました。必要な場合は再度お試しください。";
   }
   return null;
 }

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     if (!company) return NextResponse.json({ message: "会社情報が見つかりません。" }, { status: 404 });
 
     const stripe = getStripe();
-    const appUrl = getAppUrl();
+    const appUrl = getAppUrl(request);
     const billingEmail = company.billing_email ?? owner.email ?? undefined;
     let customerId = company.stripe_customer_id;
 

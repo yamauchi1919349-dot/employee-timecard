@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     const session = await getStripe().billingPortal.sessions.create({
       customer: company.stripe_customer_id,
-      return_url: `${getAppUrl()}/dashboard`,
+      return_url: `${getAppUrl(request)}/dashboard`,
     });
 
     return NextResponse.json({ url: session.url });
@@ -35,4 +35,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
