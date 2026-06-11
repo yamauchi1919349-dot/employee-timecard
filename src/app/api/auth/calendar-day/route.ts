@@ -5,6 +5,9 @@ type CalendarDayBody = {
   date?: string;
 };
 
+const ATTENDANCE_SELECT =
+  "id,company_id,user_id,profile_id,store_id,work_type,break_minutes,day_type,note,clock_in,clock_out,work_date,created_at,updated_at";
+
 export async function POST(request: Request) {
   try {
     const profile = await getAuthenticatedProfile(request);
@@ -21,7 +24,7 @@ export async function POST(request: Request) {
     const supabase = createSupabaseAdmin();
     const { data: existing, error: existingError } = await supabase
       .from("attendance")
-      .select("*")
+      .select(ATTENDANCE_SELECT)
       .eq("company_id", profile.company_id)
       .eq("user_id", profile.user_id)
       .eq("work_date", date)
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
         .eq("id", existing.id)
         .eq("company_id", profile.company_id)
         .eq("user_id", profile.user_id)
-        .select("*")
+        .select(ATTENDANCE_SELECT)
         .single();
       if (error) throw error;
       return NextResponse.json({ attendance: data, message: `${date}を通常日に戻しました。` });
@@ -68,7 +71,7 @@ export async function POST(request: Request) {
     const query = existing
       ? supabase.from("attendance").update(payload).eq("id", existing.id)
       : supabase.from("attendance").insert(payload);
-    const { data, error } = await query.select("*").single();
+    const { data, error } = await query.select(ATTENDANCE_SELECT).single();
 
     if (error) throw error;
     return NextResponse.json({ attendance: data, message: `${date}を休日に設定しました。` });

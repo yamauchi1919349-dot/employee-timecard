@@ -38,6 +38,11 @@ type TimecardPayload = {
   summary: MonthlySummary;
 };
 
+type CalendarDayResponse = {
+  attendance: SalesAttendance | null;
+  message?: string;
+};
+
 type StaffTimeEditRequest = TimeEditRequest & {
   attendance?: Pick<Attendance, "id" | "clock_in" | "clock_out" | "break_minutes" | "work_type"> | null;
 };
@@ -71,6 +76,7 @@ export function SalesTimecardApp() {
   const [breakMinutes, setBreakMinutes] = useState(60);
   const [now, setNow] = useState(new Date());
   const [loading, setLoading] = useState(false);
+  const [savingDates, setSavingDates] = useState<Set<string>>(() => new Set());
   const [message, setMessage] = useState("");
   const [requests, setRequests] = useState<StaffTimeEditRequest[]>([]);
   const [histories, setHistories] = useState<TimeEditHistory[]>([]);
@@ -179,6 +185,40 @@ export function SalesTimecardApp() {
     }
   }
 
+  async function toggleCalendarDay(date: string) {
+    if (!session || !payload || savingDates.has(date)) return;
+
+    const previousAttendance = findCalendarDayAttendance(payload, date);
+    setSavingDates((current) => new Set(current).add(date));
+    setMessage("");
+    setPayload((current) => (current ? toggleCalendarDayOptimistically(current, date, profile) : current));
+
+    try {
+      const response = await fetch("/api/auth/calendar-day", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ date }),
+      });
+      const data = (await response.json()) as CalendarDayResponse;
+      if (!response.ok) throw new Error(formatApiError(data));
+
+      setPayload((current) => (current ? applyCalendarDayAttendance(current, date, data.attendance) : current));
+      if (data.message) setMessage(data.message);
+    } catch (error) {
+      setPayload((current) => (current ? applyCalendarDayAttendance(current, date, previousAttendance) : current));
+      setMessage(error instanceof Error ? error.message : "休日設定に失敗しました。");
+    } finally {
+      setSavingDates((current) => {
+        const next = new Set(current);
+        next.delete(date);
+        return next;
+      });
+    }
+  }
+
   async function submitTimeEditRequest() {
     if (!session) return;
     if (!requestForm.reason.trim()) {
@@ -260,8 +300,9 @@ export function SalesTimecardApp() {
             selectedMonth={selectedMonth}
             rows={calendarRows}
             loading={loading}
+            savingDates={savingDates}
             onMonthChange={setSelectedMonth}
-            onToggleHoliday={(date) => postJson("/api/auth/calendar-day", { date })}
+            onToggleHoliday={toggleCalendarDay}
           />
         ) : null}
 
@@ -324,6 +365,80 @@ function formatApiError(data: unknown) {
   ]
     .filter(Boolean)
     .join(" / ");
+}
+
+function findCalendarDayAttendance(payload: TimecardPayload, date: string) {
+  return (
+    payload.calendarRows.find((row) => row.work_date === date) ??
+    payload.ownMonthRows.find((row) => row.work_date === date) ??
+    payload.monthlyRows.find((row) => row.work_date === date) ??
+    payload.attendance.find((row) => row.work_date === date) ??
+    null
+  );
+}
+
+function toggleCalendarDayOptimistically(
+  payload: TimecardPayload,
+  date: string,
+  profile: { id?: string; user_id?: string; company_id?: string; store_id?: string | null } | null,
+) {
+  const existing = findCalendarDayAttendance(payload, date);
+  const updatedAt = new Date().toISOString();
+  const nextAttendance =
+    existing?.day_type === "holiday"
+      ? existing.clock_in || existing.clock_out
+        ? { ...existing, day_type: "workday" as const, updated_at: updatedAt }
+        : null
+      : existing
+        ? { ...existing, day_type: "holiday" as const, updated_at: updatedAt }
+        : createOptimisticHolidayAttendance(payload, date, profile, updatedAt);
+
+  return applyCalendarDayAttendance(payload, date, nextAttendance);
+}
+
+function createOptimisticHolidayAttendance(
+  payload: TimecardPayload,
+  date: string,
+  profile: { id?: string; user_id?: string; company_id?: string; store_id?: string | null } | null,
+  timestamp: string,
+): SalesAttendance {
+  return {
+    id: `optimistic-holiday-${date}`,
+    company_id: profile?.company_id ?? payload.company?.id ?? "",
+    user_id: profile?.user_id ?? "",
+    profile_id: profile?.id ?? null,
+    store_id: profile?.store_id ?? null,
+    work_type: "normal",
+    break_minutes: 60,
+    day_type: "holiday",
+    note: null,
+    clock_in: null,
+    clock_out: null,
+    work_date: date,
+    created_at: timestamp,
+    updated_at: timestamp,
+    profiles: null,
+  };
+}
+
+function applyCalendarDayAttendance(payload: TimecardPayload, date: string, attendance: SalesAttendance | null) {
+  return {
+    ...payload,
+    attendance: upsertCalendarDayRow(payload.attendance, date, attendance),
+    calendarRows: upsertCalendarDayRow(payload.calendarRows, date, attendance),
+    monthlyRows: upsertCalendarDayRow(payload.monthlyRows, date, attendance),
+    ownMonthRows: upsertCalendarDayRow(payload.ownMonthRows, date, attendance),
+  };
+}
+
+function upsertCalendarDayRow(rows: SalesAttendance[], date: string, attendance: SalesAttendance | null) {
+  const nextRows = rows.filter((row) => row.work_date !== date);
+  if (!attendance) return nextRows;
+  return [...nextRows, attendance].sort((a, b) => {
+    const dateOrder = a.work_date.localeCompare(b.work_date);
+    if (dateOrder !== 0) return dateOrder;
+    return (a.clock_in ?? "").localeCompare(b.clock_in ?? "");
+  });
 }
 
 function AppHeader({
@@ -475,12 +590,14 @@ function CalendarTab({
   selectedMonth,
   rows,
   loading,
+  savingDates,
   onMonthChange,
   onToggleHoliday,
 }: {
   selectedMonth: string;
   rows: SalesAttendance[];
   loading: boolean;
+  savingDates: Set<string>;
   onMonthChange: (month: string) => void;
   onToggleHoliday: (date: string) => void;
 }) {
@@ -497,7 +614,7 @@ function CalendarTab({
     <>
       <ScreenHeader title="カレンダー" subtitle={formatMonth(selectedMonth)} />
       <MonthStepper selectedMonth={selectedMonth} onMonthChange={onMonthChange} />
-      <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+      <section aria-busy={loading} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
         <div className="grid grid-cols-7 text-center text-sm font-black">
           {["日", "月", "火", "水", "木", "金", "土"].map((day, index) => (
             <span key={day} className={index === 0 ? "text-rose-500" : index === 6 ? "text-blue-500" : "text-slate-500"}>
@@ -512,18 +629,19 @@ function CalendarTab({
             const isSavedHoliday = dayRows.some((row) => row.day_type === "holiday");
             const isHoliday = isSavedHoliday || cell.weekend;
             const isToday = cell.dateKey === getDateKey(new Date());
+            const isSaving = savingDates.has(cell.dateKey);
 
             return (
               <button
                 key={cell.dateKey}
                 type="button"
-                disabled={loading || !cell.inMonth}
+                disabled={isSaving || !cell.inMonth}
                 onClick={() => onToggleHoliday(cell.dateKey)}
                 className={`relative grid min-h-14 place-items-center rounded-full text-sm font-black transition active:scale-95 disabled:opacity-40 ${
                   cell.inMonth ? "text-slate-900" : "text-slate-300"
                 } ${isSavedHoliday ? "bg-rose-400 text-white" : ""} ${
                   isToday ? "ring-2 ring-[#6366F1]" : ""
-                }`}
+                } ${isSaving ? "opacity-60" : ""}`}
               >
                 {cell.day}
                 <span className="absolute bottom-1 flex gap-0.5">
@@ -533,6 +651,7 @@ function CalendarTab({
                     <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
                   ) : null}
                 </span>
+                {isSaving ? <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#6366F1]" /> : null}
               </button>
             );
           })}
