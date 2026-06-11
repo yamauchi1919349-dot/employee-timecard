@@ -73,6 +73,7 @@ export default function SignupPage() {
           <h1 className="mt-2 text-3xl font-bold">新規企業登録</h1>
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
             会社用の管理者アカウントを作成します。最初のユーザーはownerとして登録されます。
+            7日間無料トライアル終了後、登録した支払い方法で自動課金されます。
           </p>
         </header>
 
@@ -156,6 +157,9 @@ export default function SignupPage() {
           >
             {submitting ? "登録中..." : "登録して開始する"}
           </button>
+          <p className="mt-3 text-center text-xs font-semibold leading-5 text-slate-500">
+            支払い手続きでは、7日間無料トライアル終了後の自動課金についてStripe上でも確認できます。
+          </p>
         </form>
 
         <Link href="/login" className="text-center text-sm font-semibold text-indigo-600">

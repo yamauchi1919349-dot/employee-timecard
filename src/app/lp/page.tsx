@@ -191,6 +191,7 @@ export default function LandingPage() {
             <div className="mt-4 grid gap-3 text-sm font-semibold leading-7 text-slate-700">
               <p>現在、ArcNest Timecard は創業応援価格で提供しています。</p>
               <p>料金は月額3,980円の基本料金に、スタッフ1名あたり月額100円を加えた形です。</p>
+              <p>お申し込み後は7日間無料でお試しいただけます。無料トライアル終了後、8日目から自動課金に移行します。</p>
               <p>今後、機能追加やサービス拡充に伴い料金改定を行う場合があります。</p>
               <p>ただし、既存契約者については契約時の料金を維持する予定です。</p>
               <p>ArcNestは、中小企業や小規模事業者が導入しやすいサービスを目指しています。</p>

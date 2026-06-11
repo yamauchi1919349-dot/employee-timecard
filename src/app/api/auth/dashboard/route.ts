@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const workDate = getBusinessDate();
     const { data: company, error: companyError } = await supabase
       .from("companies")
-      .select("id,name,plan")
+      .select("id,name,plan,stripe_customer_id,stripe_subscription_id,subscription_status,current_period_end,billing_email")
       .eq("id", profile.company_id)
       .maybeSingle();
 

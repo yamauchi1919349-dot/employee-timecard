@@ -23,7 +23,7 @@ const includedFeatures = [
 
 export const metadata: Metadata = {
   title: "料金 | ArcNest",
-  description: "ArcNest Timecardの料金。月額3,980円の基本料金に、スタッフ1名あたり月額100円を加えた分かりやすい料金体系です。",
+  description: "ArcNest Timecardの料金。7日間無料トライアル終了後、月額3,980円から自動課金される分かりやすい料金体系です。",
 };
 
 export default function PricingPage() {
@@ -51,7 +51,8 @@ export default function PricingPage() {
             <p className="text-sm font-black text-blue-700">Pricing</p>
             <h1 className="mt-3 text-4xl font-black tracking-normal sm:text-5xl">料金プラン</h1>
             <p className="mt-5 text-base font-semibold leading-8 text-slate-600">
-              基本料金にスタッフ利用料を足すだけの、人数に応じた分かりやすい月額料金です。無料プラン・無料トライアルはありません。決済機能は現在準備中のため、導入をご希望の場合はお問い合わせください。
+              7日間無料トライアル終了後、自動課金に移行します。現在の初期課金は月額3,980円（税込）の固定サブスクリプションです。
+              将来的にスタッフ利用料を追加する場合も、分かりやすい月額料金としてご案内します。
             </p>
           </div>
 
@@ -133,7 +134,8 @@ export default function PricingPage() {
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-black text-slate-500">無料トライアル</p>
-              <p className="mt-2 text-xl font-black">なし</p>
+              <p className="mt-2 text-xl font-black">7日間</p>
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">終了後は自動課金に移行します。</p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-black text-slate-500">料金体系</p>

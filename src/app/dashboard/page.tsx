@@ -8,7 +8,16 @@ import { DashboardLegalLinks } from "@/components/DashboardLegalLinks";
 import { SalesTimecardApp } from "@/components/SalesTimecardApp";
 
 type DashboardPayload = {
-  company: { id: string; name: string; plan?: string } | null;
+  company: {
+    id: string;
+    name: string;
+    plan?: string | null;
+    stripe_customer_id?: string | null;
+    stripe_subscription_id?: string | null;
+    subscription_status?: string | null;
+    current_period_end?: string | null;
+    billing_email?: string | null;
+  } | null;
   workDate: string;
   attendance: AuthAttendance[];
 };
@@ -52,8 +61,11 @@ function DashboardRouter() {
 function DashboardContent({ role }: { role: string }) {
   const { session, profile, refreshProfile, signOut } = useAuth();
   const [data, setData] = useState<DashboardPayload | null>(null);
+  const [checkoutMessage] = useState<string | null>(() => getCheckoutMessage());
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [billingLoading, setBillingLoading] = useState<"checkout" | "portal" | null>(null);
+  const displayedMessage = message ?? checkoutMessage;
 
   async function loadDashboard() {
     if (!session) return;
@@ -76,6 +88,27 @@ function DashboardContent({ role }: { role: string }) {
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
+
+  async function openBillingSession(type: "checkout" | "portal") {
+    if (!session) return;
+    setBillingLoading(type);
+    setMessage(null);
+    try {
+      const response = await fetch(
+        type === "checkout" ? "/api/billing/create-checkout-session" : "/api/billing/create-portal-session",
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        },
+      );
+      const payload = (await response.json()) as { url?: string; message?: string };
+      if (!response.ok || !payload.url) throw new Error(payload.message ?? "Stripeの画面を開けませんでした。");
+      window.location.assign(payload.url);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Stripeの画面を開けませんでした。");
+      setBillingLoading(null);
+    }
+  }
 
   if (role === "staff") {
     return <DashboardLoading />;
@@ -109,9 +142,9 @@ function DashboardContent({ role }: { role: string }) {
           </div>
         </header>
 
-        {message ? (
+        {displayedMessage ? (
           <div className="rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-800 shadow-sm">
-            {message}
+            {displayedMessage}
           </div>
         ) : null}
 
@@ -139,6 +172,15 @@ function DashboardContent({ role }: { role: string }) {
             />
           ) : null}
         </nav>
+
+        {role === "owner" ? (
+          <BillingCard
+            company={data?.company ?? null}
+            loading={billingLoading}
+            onCheckout={() => openBillingSession("checkout")}
+            onPortal={() => openBillingSession("portal")}
+          />
+        ) : null}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -282,6 +324,98 @@ function AdminMenuCard({
   );
 }
 
+function BillingCard({
+  company,
+  loading,
+  onCheckout,
+  onPortal,
+}: {
+  company: DashboardPayload["company"];
+  loading: "checkout" | "portal" | null;
+  onCheckout: () => void;
+  onPortal: () => void;
+}) {
+  const status = company?.subscription_status ?? "未契約";
+  const canOpenPortal = Boolean(company?.stripe_customer_id && company?.stripe_subscription_id);
+  const isContracted = ["active", "trialing", "past_due", "unpaid"].includes(company?.subscription_status ?? "");
+
+  return (
+    <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-sm font-bold text-blue-700">支払い管理</p>
+          <h2 className="mt-2 text-xl font-black text-slate-950">ArcNest Timecard 月額利用料</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            7日間無料トライアル終了後、月額3,980円（税込）の固定サブスクリプションとして自動課金されます。
+            カード情報はStripeで安全に管理されます。
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+              契約状態: {getSubscriptionStatusLabel(status)}
+            </span>
+            {company?.current_period_end ? (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+                次回更新目安: {formatDate(company.current_period_end)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
+          {isContracted && canOpenPortal ? (
+            <button
+              type="button"
+              onClick={onPortal}
+              disabled={loading !== null}
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700 disabled:bg-slate-300"
+            >
+              {loading === "portal" ? "Stripeを開いています..." : "支払い方法・契約を管理"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onCheckout}
+              disabled={loading !== null}
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-blue-700 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-800 disabled:bg-slate-300"
+            >
+              {loading === "checkout" ? "Stripeを開いています..." : "7日間無料トライアルを開始"}
+            </button>
+          )}
+          <p className="max-w-xs text-xs font-semibold leading-5 text-slate-500">
+            将来のスタッフ人数課金に備え、契約は会社単位で管理します。
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function getSubscriptionStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    active: "契約中",
+    trialing: "無料トライアル中",
+    past_due: "支払い確認が必要",
+    unpaid: "未払い",
+    canceled: "解約済み",
+    incomplete: "手続き未完了",
+    incomplete_expired: "手続き期限切れ",
+    paused: "停止中",
+    "未契約": "未契約",
+  };
+  return labels[status] ?? status;
+}
+
+function getCheckoutMessage() {
+  if (typeof window === "undefined") return null;
+  const checkout = new URLSearchParams(window.location.search).get("checkout");
+  if (checkout === "success") {
+    return "お支払い手続きが完了しました。契約状態はStripeからの通知後に反映されます。";
+  }
+  if (checkout === "cancel") {
+    return "お支払い手続きはキャンセルされました。";
+  }
+  return null;
+}
+
 function DashboardLoading() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
@@ -290,6 +424,14 @@ function DashboardLoading() {
       </div>
     </main>
   );
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
 }
 
 function normalizeRole(role?: string | null) {

@@ -20,6 +20,11 @@ export type Company = {
   id: string;
   name: string;
   plan?: string;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  subscription_status?: string | null;
+  current_period_end?: string | null;
+  billing_email?: string | null;
   work_rounding_minutes: WorkRoundingMinutes;
   rounding_method: RoundingMethod;
   overtime_threshold_minutes: number;
