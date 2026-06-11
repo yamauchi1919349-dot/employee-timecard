@@ -60,12 +60,6 @@ export async function POST(request: Request) {
     const successUrl = `${appUrl}/dashboard?checkout=success`;
     const cancelUrl = `${appUrl}/dashboard?checkout=cancel`;
 
-    console.info("[billing:create-checkout-session] Stripe Checkout URLs", {
-      baseUrl: appUrl,
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-    });
-
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -93,14 +87,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Stripe Checkout URLを作成できませんでした。" }, { status: 500 });
     }
 
-    return NextResponse.json({
-      url: session.url,
-      checkoutUrls: {
-        baseUrl: appUrl,
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-      },
-    });
+    return NextResponse.json({ url: session.url });
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Checkoutセッション作成に失敗しました。" },

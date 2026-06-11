@@ -38,13 +38,6 @@ type AuthAttendance = {
   } | null;
 };
 
-type CheckoutDebugInfo = {
-  baseUrl: string;
-  successUrl: string;
-  cancelUrl: string;
-  sessionUrl: string;
-};
-
 export default function DashboardPage() {
   return (
     <RequireAuth>
@@ -75,7 +68,6 @@ function DashboardContent({ role }: { role: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingLoading, setBillingLoading] = useState<"checkout" | "portal" | null>(null);
-  const [checkoutDebugInfo, setCheckoutDebugInfo] = useState<CheckoutDebugInfo | null>(null);
   const displayedMessage = message ?? checkoutMessage;
   const billingAllowed = isCompanySubscriptionActive(data?.company);
   const ownerBillingRestricted = role === "owner" && !billingAllowed;
@@ -107,7 +99,6 @@ function DashboardContent({ role }: { role: string }) {
     if (!session) return;
     setBillingLoading(type);
     setMessage(null);
-    if (type === "checkout") setCheckoutDebugInfo(null);
     try {
       const response = await fetch(
         type === "checkout" ? "/api/billing/create-checkout-session" : "/api/billing/create-portal-session",
@@ -119,23 +110,8 @@ function DashboardContent({ role }: { role: string }) {
       const payload = (await response.json()) as {
         url?: string;
         message?: string;
-        checkoutUrls?: {
-          baseUrl?: string;
-          success_url?: string;
-          cancel_url?: string;
-        };
       };
       if (!response.ok || !payload.url) throw new Error(payload.message ?? "Stripeの画面を開けませんでした。");
-      if (type === "checkout") {
-        setCheckoutDebugInfo({
-          baseUrl: payload.checkoutUrls?.baseUrl ?? "",
-          successUrl: payload.checkoutUrls?.success_url ?? "",
-          cancelUrl: payload.checkoutUrls?.cancel_url ?? "",
-          sessionUrl: payload.url,
-        });
-        setBillingLoading(null);
-        return;
-      }
       window.location.assign(payload.url);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Stripeの画面を開けませんでした。");
@@ -213,11 +189,7 @@ function DashboardContent({ role }: { role: string }) {
             company={data?.company ?? null}
             restricted={ownerBillingRestricted}
             loading={billingLoading}
-            checkoutDebugInfo={checkoutDebugInfo}
             onCheckout={() => openBillingSession("checkout")}
-            onContinueCheckout={() => {
-              if (checkoutDebugInfo?.sessionUrl) window.location.assign(checkoutDebugInfo.sessionUrl);
-            }}
             onPortal={() => openBillingSession("portal")}
           />
         ) : null}
@@ -384,17 +356,13 @@ function BillingCard({
   company,
   restricted,
   loading,
-  checkoutDebugInfo,
   onCheckout,
-  onContinueCheckout,
   onPortal,
 }: {
   company: DashboardPayload["company"];
   restricted?: boolean;
   loading: "checkout" | "portal" | null;
-  checkoutDebugInfo: CheckoutDebugInfo | null;
   onCheckout: () => void;
-  onContinueCheckout: () => void;
   onPortal: () => void;
 }) {
   const status = company?.subscription_status ?? "未契約";
@@ -463,37 +431,7 @@ function BillingCard({
           </p>
         </div>
       </div>
-      {checkoutDebugInfo ? (
-        <section className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-sm font-black text-amber-800">一時デバッグ: Stripe Checkout URL</p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-            確認用の一時表示です。秘密情報は含めていません。確認後に「Stripeへ進む」を押してください。
-          </p>
-          <div className="mt-3 grid gap-2 text-xs font-bold text-slate-700">
-            <DebugUrlRow label="baseUrl" value={checkoutDebugInfo.baseUrl} />
-            <DebugUrlRow label="success_url" value={checkoutDebugInfo.successUrl} />
-            <DebugUrlRow label="cancel_url" value={checkoutDebugInfo.cancelUrl} />
-            <DebugUrlRow label="session.url" value={checkoutDebugInfo.sessionUrl} />
-          </div>
-          <button
-            type="button"
-            onClick={onContinueCheckout}
-            className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
-          >
-            Stripeへ進む
-          </button>
-        </section>
-      ) : null}
     </section>
-  );
-}
-
-function DebugUrlRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid gap-1 rounded-lg bg-white/80 p-3 sm:grid-cols-[140px_1fr]">
-      <span className="font-black text-slate-500">{label}</span>
-      <span className="break-all font-mono text-[11px] leading-5 text-slate-800">{value || "-"}</span>
-    </div>
   );
 }
 
