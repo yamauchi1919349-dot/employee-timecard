@@ -546,6 +546,8 @@ function HomeTab({
       </section>
 
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
+        <OjisanCompanion status={status} />
+        <div className="mt-5 border-t border-slate-100 pt-5">
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
@@ -557,6 +559,7 @@ function HomeTab({
           <div className="grid h-14 w-14 place-items-center rounded-full bg-[#EEF2FF] text-[#6366F1]">
             <IconClock />
           </div>
+        </div>
         </div>
       </section>
 
@@ -590,8 +593,6 @@ function HomeTab({
         </span>
         <span className="text-3xl font-light">›</span>
       </button>
-
-      <OjisanCompanion status={status} />
 
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
         <div className="grid grid-cols-2 gap-4">
@@ -641,28 +642,30 @@ const ojisanImageSrc: string | null = null;
 
 function OjisanCompanion({ status }: { status: Status }) {
   return (
-    <section className="flex items-center gap-3 rounded-xl bg-white/75 px-3 py-2 shadow-sm ring-1 ring-slate-100">
+    <section className="flex items-center gap-3 rounded-xl bg-slate-50/90 px-3 py-3 ring-1 ring-slate-100">
       {ojisanImageSrc ? (
         <Image
           src={ojisanImageSrc}
           alt=""
-          width={48}
-          height={48}
-          className="h-12 w-12 shrink-0 object-contain [image-rendering:pixelated]"
+          width={72}
+          height={72}
+          className="h-[68px] w-[68px] shrink-0 object-contain [image-rendering:pixelated]"
         />
       ) : (
-        <span aria-hidden="true" className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-          <span className="absolute left-3 top-1 h-2 w-6 bg-slate-600" />
-          <span className="absolute left-2 top-3 h-7 w-8 bg-[#F2C9A0]" />
-          <span className="absolute left-1 top-5 h-2 w-2 bg-[#F2C9A0]" />
-          <span className="absolute right-1 top-5 h-2 w-2 bg-[#F2C9A0]" />
-          <span className="absolute left-3 top-5 h-1.5 w-1.5 bg-slate-800" />
-          <span className="absolute right-3 top-5 h-1.5 w-1.5 bg-slate-800" />
-          <span className="absolute left-[18px] top-7 h-1.5 w-3 bg-slate-700" />
-          <span className="absolute bottom-1 left-3 h-3 w-6 bg-[#64748B]" />
+        <span aria-hidden="true" className="relative h-[68px] w-[68px] shrink-0 overflow-hidden rounded-lg bg-slate-100">
+          <span className="absolute left-[18px] top-2 h-3 w-8 bg-slate-600" />
+          <span className="absolute left-4 top-5 h-10 w-10 bg-[#F2C9A0]" />
+          <span className="absolute left-3 top-8 h-3 w-3 bg-[#F2C9A0]" />
+          <span className="absolute right-3 top-8 h-3 w-3 bg-[#F2C9A0]" />
+          <span className="absolute left-[24px] top-8 h-2 w-2 bg-slate-800" />
+          <span className="absolute right-[24px] top-8 h-2 w-2 bg-slate-800" />
+          <span className="absolute left-[27px] top-11 h-2 w-4 bg-slate-700" />
+          <span className="absolute bottom-1 left-[18px] h-4 w-8 bg-[#64748B]" />
         </span>
       )}
-      <p className="min-w-0 text-sm font-bold leading-6 text-slate-600">{ojisanMessages[status]}</p>
+      <p className="relative min-w-0 rounded-xl bg-white px-4 py-3 text-sm font-bold leading-6 text-slate-600 shadow-sm ring-1 ring-slate-100 before:absolute before:left-[-6px] before:top-1/2 before:h-3 before:w-3 before:-translate-y-1/2 before:rotate-45 before:bg-white before:ring-1 before:ring-slate-100">
+        <span className="relative">{ojisanMessages[status]}</span>
+      </p>
     </section>
   );
 }
