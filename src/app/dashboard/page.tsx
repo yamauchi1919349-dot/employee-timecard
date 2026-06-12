@@ -23,6 +23,7 @@ type DashboardPayload = {
   } | null;
   workDate: string;
   attendance: AuthAttendance[];
+  pendingTimeEditRequestCount?: number;
 };
 
 type AuthAttendance = {
@@ -181,7 +182,8 @@ function DashboardContent({ role }: { role: string }) {
             {role === "owner" ? (
               <AdminMenuCard
                 href="/admin/time-edit-requests"
-                label="打刻修正"
+                badgeCount={data?.pendingTimeEditRequestCount ?? 0}
+                label="打刻修正依頼"
                 description="修正依頼の承認・却下と、ownerによる直接修正を行います。"
               />
             ) : null}
@@ -325,17 +327,26 @@ function AdminMenuCard({
   href,
   label,
   description,
+  badgeCount = 0,
 }: {
   href: string;
   label: string;
   description: string;
+  badgeCount?: number;
 }) {
   return (
     <Link
       href={href}
       className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
     >
-      <p className="text-lg font-black text-slate-950">{label}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-lg font-black text-slate-950">{label}</p>
+        {badgeCount > 0 ? (
+          <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-red-600 px-2 text-sm font-black text-white shadow-sm">
+            {badgeCount}
+          </span>
+        ) : null}
+      </div>
       <p className="mt-2 min-h-10 text-sm leading-6 text-slate-500">{description}</p>
       <span className="mt-4 inline-flex h-10 items-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white transition group-hover:bg-blue-700">
         開く

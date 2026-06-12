@@ -37,6 +37,17 @@ export async function GET(request: Request) {
       profile.role === "staff"
         ? (attendance ?? []).find((row) => row.user_id === profile.user_id) ?? null
         : null;
+    let pendingTimeEditRequestCount = 0;
+
+    if (profile.role === "owner") {
+      const { count, error: pendingRequestError } = await supabase
+        .from("time_edit_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", profile.company_id)
+        .eq("status", "pending");
+      if (pendingRequestError) throw pendingRequestError;
+      pendingTimeEditRequestCount = count ?? 0;
+    }
 
     return NextResponse.json({
       profile,
@@ -44,6 +55,7 @@ export async function GET(request: Request) {
       workDate,
       todayLog,
       attendance: attendance ?? [],
+      pendingTimeEditRequestCount,
     });
   } catch (error) {
     return NextResponse.json(
