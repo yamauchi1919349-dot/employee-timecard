@@ -632,39 +632,37 @@ function HomeTab({
   );
 }
 
-const ojisanMessages: Record<Status, string> = {
-  not_clocked_in: "今日もぼちぼちいこか",
-  working: "働いとるな、えらい",
-  clocked_out: "おつかれさん",
+const ojisanCompanionByStatus: Record<Status, { message: string; imageSrc: string }> = {
+  not_clocked_in: {
+    message: "今日仕事休んじゃおうかなぁ",
+    imageSrc: "/characters/ojisan/before-work.png",
+  },
+  working: {
+    message: "今日もぼちぼちやりますか",
+    imageSrc: "/characters/ojisan/working.png",
+  },
+  clocked_out: {
+    message: "とりあえずビールで乾杯",
+    imageSrc: "/characters/ojisan/after-work.png",
+  },
 };
 
-const ojisanImageSrc: string | null = null;
-
 function OjisanCompanion({ status }: { status: Status }) {
+  const companion = ojisanCompanionByStatus[status];
+
   return (
     <section className="flex items-center gap-3 rounded-xl bg-slate-50/90 px-3 py-3 ring-1 ring-slate-100">
-      {ojisanImageSrc ? (
+      <span className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100">
         <Image
-          src={ojisanImageSrc}
+          src={companion.imageSrc}
           alt=""
-          width={72}
-          height={72}
-          className="h-[68px] w-[68px] shrink-0 object-contain [image-rendering:pixelated]"
+          width={80}
+          height={80}
+          className="h-[76px] w-[76px] object-contain [image-rendering:pixelated]"
         />
-      ) : (
-        <span aria-hidden="true" className="relative h-[68px] w-[68px] shrink-0 overflow-hidden rounded-lg bg-slate-100">
-          <span className="absolute left-[18px] top-2 h-3 w-8 bg-slate-600" />
-          <span className="absolute left-4 top-5 h-10 w-10 bg-[#F2C9A0]" />
-          <span className="absolute left-3 top-8 h-3 w-3 bg-[#F2C9A0]" />
-          <span className="absolute right-3 top-8 h-3 w-3 bg-[#F2C9A0]" />
-          <span className="absolute left-[24px] top-8 h-2 w-2 bg-slate-800" />
-          <span className="absolute right-[24px] top-8 h-2 w-2 bg-slate-800" />
-          <span className="absolute left-[27px] top-11 h-2 w-4 bg-slate-700" />
-          <span className="absolute bottom-1 left-[18px] h-4 w-8 bg-[#64748B]" />
-        </span>
-      )}
+      </span>
       <p className="relative min-w-0 rounded-xl bg-white px-4 py-3 text-sm font-bold leading-6 text-slate-600 shadow-sm ring-1 ring-slate-100 before:absolute before:left-[-6px] before:top-1/2 before:h-3 before:w-3 before:-translate-y-1/2 before:rotate-45 before:bg-white before:ring-1 before:ring-slate-100">
-        <span className="relative">{ojisanMessages[status]}</span>
+        <span className="relative">{companion.message}</span>
       </p>
     </section>
   );
