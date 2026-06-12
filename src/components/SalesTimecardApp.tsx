@@ -14,7 +14,7 @@ import {
 } from "@/lib/time-edit";
 import { AppNotification, Attendance, SalesWorkType, TimeEditHistory, TimeEditRequest, TimeEditRequestType } from "@/lib/types";
 
-type ActiveTab = "home" | "calendar" | "monthly" | "requests" | "other";
+type ActiveTab = "home" | "calendar" | "monthly" | "requests";
 type Status = "not_clocked_in" | "working" | "clocked_out";
 type SalesAttendance = Attendance & {
   profiles?: { name?: string | null; email?: string | null; role?: string | null } | null;
@@ -284,9 +284,9 @@ export function SalesTimecardApp() {
             companyName={payload.company?.name ?? "Timecard"}
             userName={profile?.name ?? ""}
             onRefresh={loadData}
+            onSignOut={signOut}
           />
           <StaffBillingRestrictedCard message={payload.message ?? getBillingRestrictionMessage()} />
-          <OtherTab onSignOut={signOut} />
           <DashboardLegalLinks showContact={false} />
         </div>
       </main>
@@ -300,6 +300,7 @@ export function SalesTimecardApp() {
           companyName={payload?.company?.name ?? "Timecard"}
           userName={profile?.name ?? ""}
           onRefresh={loadData}
+          onSignOut={signOut}
         />
 
         {message ? (
@@ -355,8 +356,6 @@ export function SalesTimecardApp() {
             onReadNotification={markNotificationRead}
           />
         ) : null}
-
-        {activeTab === "other" ? <OtherTab onSignOut={signOut} /> : null}
 
         <DashboardLegalLinks showContact={false} />
       </div>
@@ -488,14 +487,25 @@ function AppHeader({
   companyName,
   userName,
   onRefresh,
+  onSignOut,
 }: {
   companyName: string;
   userName: string;
   onRefresh: () => void;
+  onSignOut: () => void;
 }) {
   return (
     <header className="relative min-h-16 px-1">
-      <p className="absolute left-0 top-0 text-sm font-black text-[#4F46E5]">{companyName}</p>
+      <div className="absolute left-0 top-0 flex max-w-[calc(100%-56px)] items-center gap-3">
+        <p className="min-w-0 truncate text-sm font-black text-[#4F46E5]">{companyName}</p>
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="shrink-0 bg-transparent p-0 text-xs font-bold text-slate-400 underline-offset-4 hover:text-slate-600 hover:underline"
+        >
+          ログアウト
+        </button>
+      </div>
       <p className="pt-8 text-center text-sm font-black text-slate-500">{userName}</p>
       <button
         type="button"
@@ -1027,23 +1037,6 @@ function TimeEditRequestModal({
   );
 }
 
-function OtherTab({ onSignOut }: { onSignOut: () => void }) {
-  return (
-    <>
-      <ScreenHeader title="その他" subtitle="アカウント" />
-      <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="h-12 w-full rounded-xl bg-slate-950 text-base font-black text-white"
-        >
-          ログアウト
-        </button>
-      </section>
-    </>
-  );
-}
-
 function BottomTabs({
   activeTab,
   onChange,
@@ -1056,12 +1049,11 @@ function BottomTabs({
     { id: "calendar", label: "カレンダー", icon: "□" },
     { id: "monthly", label: "月次", icon: "▤" },
     { id: "requests", label: "修正", icon: "!" },
-    { id: "other", label: "その他", icon: "▧" },
   ];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-100 bg-white/95 px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-3 shadow-sm backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+      <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
         {tabs.map((tab) => {
           const active = activeTab === tab.id;
           return (
