@@ -41,6 +41,7 @@ export async function POST(request: Request) {
         await updateCompanyFromSubscription(event.data.object);
         break;
       case "invoice.payment_succeeded":
+      case "invoice.paid":
         await handleInvoicePayment(event.data.object, "payment_succeeded");
         break;
       case "invoice.payment_failed":
@@ -67,6 +68,11 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
   const subscriptionId = getStripeId(session.subscription);
   const customerId = getStripeId(session.customer);
+  console.info("[stripe:webhook] checkout.session.completed ids", {
+    companyId,
+    hasCustomerId: Boolean(customerId),
+    hasSubscriptionId: Boolean(subscriptionId),
+  });
   const subscription = subscriptionId
     ? await getStripe().subscriptions.retrieve(subscriptionId)
     : null;
@@ -172,11 +178,25 @@ async function findCompanyIdForInvoice(invoice: Stripe.Invoice, subscriptionId: 
 
 async function updateCompanyBilling(companyId: string, values: Record<string, string | null>) {
   const supabase = createSupabaseAdmin();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("companies")
     .update(values)
-    .eq("id", companyId);
+    .eq("id", companyId)
+    .select("id,plan,subscription_status,stripe_customer_id,stripe_subscription_id");
   if (error) throw error;
+  if (!data.length) {
+    throw new Error(`companies update matched 0 rows for companyId=${companyId}`);
+  }
+
+  const updatedCompany = data[0];
+  console.info("[stripe:webhook] companies update result", {
+    companyId,
+    updatedRows: data.length,
+    plan: updatedCompany.plan,
+    subscription_status: updatedCompany.subscription_status,
+    hasStripeCustomerId: Boolean(updatedCompany.stripe_customer_id),
+    hasStripeSubscriptionId: Boolean(updatedCompany.stripe_subscription_id),
+  });
 }
 
 async function startGracePeriod(companyId: string, values: Record<string, string | null>) {
