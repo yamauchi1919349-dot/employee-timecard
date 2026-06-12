@@ -6,9 +6,9 @@ export async function requireActiveCompanySubscription(profile: AuthProfile) {
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("companies")
-    .select("subscription_status,billing_grace_period_ends_at")
+    .select("plan,subscription_status,billing_grace_period_ends_at")
     .eq("id", profile.company_id)
-    .maybeSingle<{ subscription_status: string | null; billing_grace_period_ends_at: string | null }>();
+    .maybeSingle<{ plan: string | null; subscription_status: string | null; billing_grace_period_ends_at: string | null }>();
 
   if (error) throw error;
 
@@ -17,6 +17,7 @@ export async function requireActiveCompanySubscription(profile: AuthProfile) {
   return NextResponse.json(
     {
       message: getBillingRestrictionMessage(),
+      plan: data?.plan ?? null,
       subscription_status: data?.subscription_status ?? null,
       billing_grace_period_ends_at: data?.billing_grace_period_ends_at ?? null,
     },
