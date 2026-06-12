@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardLegalLinks } from "@/components/DashboardLegalLinks";
 import { formatTime } from "@/lib/attendance";
@@ -642,29 +642,52 @@ function HomeTab({
   );
 }
 
-const ojisanCompanionByStatus: Record<Status, { message: string; imageSrc: string }> = {
-  not_clocked_in: {
-    message: "今日仕事休んじゃおうかなぁ",
-    imageSrc: "/characters/ojisan/before-work.png",
-  },
-  working: {
-    message: "今日もぼちぼちやりますか",
-    imageSrc: "/characters/ojisan/working.png",
-  },
-  clocked_out: {
-    message: "とりあえずビールで乾杯",
-    imageSrc: "/characters/ojisan/after-work.png",
-  },
+const ojisanImagesByStatus: Record<Status, string> = {
+  not_clocked_in: "/characters/ojisan/before-work.png",
+  working: "/characters/ojisan/working.png",
+  clocked_out: "/characters/ojisan/after-work.png",
+};
+
+const ojisanMessagesByStatus: Record<Status, string[]> = {
+  not_clocked_in: [
+    "今日仕事休んじゃおうかなぁ",
+    "布団が離してくれんかった",
+    "有給って便利な制度だよなぁ",
+    "今日はなんか眠いなぁ",
+    "とりあえず会社行くか",
+    "朝って毎日来るんだなぁ",
+  ],
+  working: [
+    "今日もぼちぼちやりますか",
+    "働いとるな、えらい",
+    "焦らんでも昼は来る",
+    "コーヒーもう一杯ほしいな",
+    "あとで休憩しよう",
+    "無理せん程度にな",
+  ],
+  clocked_out: [
+    "とりあえずビールで乾杯",
+    "今日はよう働いた",
+    "風呂入って寝るか",
+    "晩飯なにかなぁ",
+    "明日のことは明日考えよう",
+    "おつかれさんでした",
+  ],
 };
 
 function OjisanCompanion({ status }: { status: Status }) {
-  const companion = ojisanCompanionByStatus[status];
+  const todayKey = getDateKey(new Date());
+  const message = useSyncExternalStore(
+    subscribeOjisanMessage,
+    () => getDailyOjisanMessage(status, todayKey),
+    () => ojisanMessagesByStatus[status][0],
+  );
 
   return (
     <section className="flex items-center gap-3 rounded-xl bg-slate-50/90 px-3 py-4 ring-1 ring-slate-100">
       <span className="grid h-[136px] w-[136px] shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-100">
         <Image
-          src={companion.imageSrc}
+          src={ojisanImagesByStatus[status]}
           alt=""
           width={136}
           height={136}
@@ -672,10 +695,34 @@ function OjisanCompanion({ status }: { status: Status }) {
         />
       </span>
       <p className="relative min-w-0 rounded-xl bg-white px-4 py-4 text-base font-bold leading-7 text-slate-600 shadow-sm ring-1 ring-slate-100 before:absolute before:left-[-6px] before:top-1/2 before:h-3 before:w-3 before:-translate-y-1/2 before:rotate-45 before:bg-white before:ring-1 before:ring-slate-100">
-        <span className="relative">{companion.message}</span>
+        <span className="relative">{message}</span>
       </p>
     </section>
   );
+}
+
+function subscribeOjisanMessage() {
+  return () => {};
+}
+
+function getDailyOjisanMessage(status: Status, dateKey: string) {
+  const messages = ojisanMessagesByStatus[status];
+  const storageKey = `ojisan-companion-message:v1:${dateKey}:${status}`;
+
+  if (typeof window === "undefined") return messages[0];
+
+  try {
+    const storedIndex = Number(window.localStorage.getItem(storageKey));
+    if (Number.isInteger(storedIndex) && storedIndex >= 0 && storedIndex < messages.length) {
+      return messages[storedIndex];
+    }
+
+    const nextIndex = Math.floor(Math.random() * messages.length);
+    window.localStorage.setItem(storageKey, String(nextIndex));
+    return messages[nextIndex];
+  } catch {
+    return messages[0];
+  }
 }
 
 function CalendarTab({
