@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { DashboardLegalLinks } from "@/components/DashboardLegalLinks";
@@ -590,6 +591,8 @@ function HomeTab({
         <span className="text-3xl font-light">›</span>
       </button>
 
+      <OjisanCompanion status={status} />
+
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
         <div className="grid grid-cols-2 gap-4">
           <label className="text-sm font-black text-slate-500">
@@ -625,6 +628,42 @@ function HomeTab({
         </div>
       </section>
     </>
+  );
+}
+
+const ojisanMessages: Record<Status, string> = {
+  not_clocked_in: "今日もぼちぼちいこか",
+  working: "働いとるな、えらい",
+  clocked_out: "おつかれさん",
+};
+
+const ojisanImageSrc: string | null = null;
+
+function OjisanCompanion({ status }: { status: Status }) {
+  return (
+    <section className="flex items-center gap-3 rounded-xl bg-white/75 px-3 py-2 shadow-sm ring-1 ring-slate-100">
+      {ojisanImageSrc ? (
+        <Image
+          src={ojisanImageSrc}
+          alt=""
+          width={48}
+          height={48}
+          className="h-12 w-12 shrink-0 object-contain [image-rendering:pixelated]"
+        />
+      ) : (
+        <span aria-hidden="true" className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+          <span className="absolute left-3 top-1 h-2 w-6 bg-slate-600" />
+          <span className="absolute left-2 top-3 h-7 w-8 bg-[#F2C9A0]" />
+          <span className="absolute left-1 top-5 h-2 w-2 bg-[#F2C9A0]" />
+          <span className="absolute right-1 top-5 h-2 w-2 bg-[#F2C9A0]" />
+          <span className="absolute left-3 top-5 h-1.5 w-1.5 bg-slate-800" />
+          <span className="absolute right-3 top-5 h-1.5 w-1.5 bg-slate-800" />
+          <span className="absolute left-[18px] top-7 h-1.5 w-3 bg-slate-700" />
+          <span className="absolute bottom-1 left-3 h-3 w-6 bg-[#64748B]" />
+        </span>
+      )}
+      <p className="min-w-0 text-sm font-bold leading-6 text-slate-600">{ojisanMessages[status]}</p>
+    </section>
   );
 }
 
