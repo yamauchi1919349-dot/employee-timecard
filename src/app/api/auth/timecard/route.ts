@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { BASIC_WORK_MINUTES, getBusinessDate } from "@/lib/attendance";
+import { getBusinessDate } from "@/lib/attendance";
+import { normalizeCompanySettings, roundDateToInterval } from "@/lib/admin-settings";
 import { getBillingRestrictionMessage, isCompanySubscriptionActive } from "@/lib/billing-status";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
-import { Attendance } from "@/lib/types";
+import { Attendance, CompanySettings } from "@/lib/types";
 
 export async function GET(request: Request) {
   try {
@@ -27,10 +28,11 @@ export async function GET(request: Request) {
 
     const { data: company, error: companyError } = await supabase
       .from("companies")
-      .select("id,name,plan,subscription_status,billing_grace_period_started_at,billing_grace_period_ends_at")
+      .select("id,name,plan,subscription_status,billing_grace_period_started_at,billing_grace_period_ends_at,work_rounding_minutes,rounding_method,overtime_threshold_minutes,include_payroll")
       .eq("id", profile.company_id)
       .maybeSingle();
     if (companyError) throw companyError;
+    const settings = normalizeCompanySettings(company);
 
     if (!isCompanySubscriptionActive(company)) {
       return NextResponse.json({
@@ -45,7 +47,7 @@ export async function GET(request: Request) {
         calendarRows: [],
         monthlyRows: [],
         ownMonthRows: [],
-        summary: summarize([]),
+        summary: summarize([], settings),
       });
     }
 
@@ -78,7 +80,7 @@ export async function GET(request: Request) {
       null;
     const ownMonthRows = monthlyRows;
     const summaryRows = role === "staff" ? monthlyRows : attendance.filter((row) => Boolean(row.clock_in));
-    const summary = summarize(summaryRows);
+    const summary = summarize(summaryRows, settings);
 
     return NextResponse.json({
       profile,
@@ -103,13 +105,13 @@ export async function GET(request: Request) {
   }
 }
 
-function summarize(rows: Attendance[]) {
+function summarize(rows: Attendance[], settings: CompanySettings) {
   return rows.reduce(
     (summary, row) => {
       const grossMinutes = getGrossMinutes(row);
       const breakMinutes = row.clock_in ? row.break_minutes : 0;
-      const workMinutes = getWorkMinutes(row);
-      const overtimeMinutes = Math.max(0, workMinutes - BASIC_WORK_MINUTES);
+      const workMinutes = getRoundedWorkMinutes(row, settings);
+      const overtimeMinutes = Math.max(0, workMinutes - settings.overtime_threshold_minutes);
 
       summary.totalGrossMinutes += grossMinutes;
       summary.totalBreakMinutes += breakMinutes;
@@ -137,9 +139,18 @@ function getGrossMinutes(row: Attendance) {
   );
 }
 
-function getWorkMinutes(row: Attendance) {
+function getRoundedWorkMinutes(row: Attendance, settings: CompanySettings) {
   if (!row.clock_in || !row.clock_out) return 0;
-  const end = new Date(row.clock_out);
-  const raw = Math.floor((end.getTime() - new Date(row.clock_in).getTime()) / 60000);
-  return Math.max(0, raw - row.break_minutes);
+  const roundedIn = roundDateToInterval(
+    new Date(row.clock_in),
+    settings.work_rounding_minutes,
+    settings.rounding_method,
+  );
+  const roundedOut = roundDateToInterval(
+    new Date(row.clock_out),
+    settings.work_rounding_minutes,
+    settings.rounding_method,
+  );
+  const rawMinutes = Math.floor((roundedOut.getTime() - roundedIn.getTime()) / 60000);
+  return Math.max(0, rawMinutes - row.break_minutes);
 }

@@ -286,7 +286,7 @@ export function SalesTimecardApp() {
           />
           <StaffBillingRestrictedCard message={payload.message ?? getBillingRestrictionMessage()} />
           <OtherTab onSignOut={signOut} />
-          <DashboardLegalLinks />
+          <DashboardLegalLinks showContact={false} />
         </div>
       </main>
     );
@@ -357,7 +357,7 @@ export function SalesTimecardApp() {
 
         {activeTab === "other" ? <OtherTab onSignOut={signOut} /> : null}
 
-        <DashboardLegalLinks />
+        <DashboardLegalLinks showContact={false} />
       </div>
 
       <BottomTabs activeTab={activeTab} onChange={setActiveTab} />
@@ -725,7 +725,7 @@ function MonthlyTab({
         <div className="mt-5 grid grid-cols-2 gap-3">
           <SummaryCard label="勤務日数" value={`${summary.workedDays}日`} />
           <SummaryCard label="総勤務時間" value={formatDuration(summary.totalGrossMinutes)} />
-          <SummaryCard label="総休憩時間" value={formatDuration(summary.totalBreakMinutes)} />
+          <SummaryCard label="総残業時間" value={formatDuration(summary.overtimeMinutes)} />
           <SummaryCard label="総実働時間" value={formatDuration(summary.totalWorkMinutes)} />
         </div>
       </section>

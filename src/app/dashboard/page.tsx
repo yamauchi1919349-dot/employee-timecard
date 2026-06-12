@@ -127,6 +127,10 @@ function DashboardContent({ role }: { role: string }) {
     return <TermsAcceptanceScreen sessionToken={session?.access_token ?? ""} onAccepted={refreshProfile} onSignOut={signOut} />;
   }
 
+  if (loading && !data) {
+    return <DashboardLoading />;
+  }
+
   return (
     <main data-route="sales-dashboard" className="min-h-screen bg-slate-50 px-4 py-8 text-slate-950 sm:py-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">

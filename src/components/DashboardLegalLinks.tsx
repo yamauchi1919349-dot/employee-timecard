@@ -8,15 +8,17 @@ const legalLinks = [
   { href: "/contact", label: "お問い合わせ" },
 ];
 
-export function DashboardLegalLinks() {
+export function DashboardLegalLinks({ showContact = true }: { showContact?: boolean }) {
+  const visibleLinks = showContact ? legalLinks : legalLinks.filter((link) => link.href !== "/contact");
+
   return (
     <nav className="flex flex-wrap justify-center gap-x-3 gap-y-2 text-center text-xs font-semibold leading-6 text-slate-500 sm:text-sm">
-      {legalLinks.map((link, index) => (
+      {visibleLinks.map((link, index) => (
         <span key={link.href} className="inline-flex items-center gap-3">
           <Link href={link.href} className="underline-offset-4 transition hover:text-blue-700 hover:underline">
             {link.label}
           </Link>
-          {index < legalLinks.length - 1 ? <span className="text-slate-300">|</span> : null}
+          {index < visibleLinks.length - 1 ? <span className="text-slate-300">|</span> : null}
         </span>
       ))}
     </nav>
