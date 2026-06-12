@@ -651,17 +651,17 @@ function OjisanCompanion({ status }: { status: Status }) {
   const companion = ojisanCompanionByStatus[status];
 
   return (
-    <section className="flex items-center gap-3 rounded-xl bg-slate-50/90 px-3 py-3 ring-1 ring-slate-100">
-      <span className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100">
+    <section className="flex items-center gap-3 rounded-xl bg-slate-50/90 px-3 py-4 ring-1 ring-slate-100">
+      <span className="grid h-[136px] w-[136px] shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-100">
         <Image
           src={companion.imageSrc}
           alt=""
-          width={80}
-          height={80}
-          className="h-[76px] w-[76px] object-contain [image-rendering:pixelated]"
+          width={136}
+          height={136}
+          className="h-[128px] w-[128px] object-contain [image-rendering:pixelated]"
         />
       </span>
-      <p className="relative min-w-0 rounded-xl bg-white px-4 py-3 text-sm font-bold leading-6 text-slate-600 shadow-sm ring-1 ring-slate-100 before:absolute before:left-[-6px] before:top-1/2 before:h-3 before:w-3 before:-translate-y-1/2 before:rotate-45 before:bg-white before:ring-1 before:ring-slate-100">
+      <p className="relative min-w-0 rounded-xl bg-white px-4 py-4 text-base font-bold leading-7 text-slate-600 shadow-sm ring-1 ring-slate-100 before:absolute before:left-[-6px] before:top-1/2 before:h-3 before:w-3 before:-translate-y-1/2 before:rotate-45 before:bg-white before:ring-1 before:ring-slate-100">
         <span className="relative">{companion.message}</span>
       </p>
     </section>
