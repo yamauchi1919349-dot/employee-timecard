@@ -568,25 +568,11 @@ function HomeTab({
 
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
         <OjisanCompanion status={status} />
-        <div className="mt-5 border-t border-slate-100 pt-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <span className={`h-3 w-3 rounded-full ${status === "not_clocked_in" ? "bg-slate-300" : "bg-[#6366F1]"}`} />
-              <h2 className="text-2xl font-black">{getStatusLabel(status)}</h2>
-            </div>
-            <p className="mt-5 text-base font-black">出勤 {formatTime(todayLog?.clock_in ?? null)}</p>
-          </div>
-          <div className="grid h-14 w-14 place-items-center rounded-full bg-[#EEF2FF] text-[#6366F1]">
-            <IconClock />
-          </div>
-        </div>
-        </div>
       </section>
 
       <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
-        <div className="flex items-center justify-between gap-4">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
             <p className="text-sm font-black text-slate-500">本日の勤務時間</p>
             <p className="mt-4 text-4xl font-black">{formatDuration(todayWorkMinutes)}</p>
             <p className="mt-3 text-base font-black text-slate-500">
@@ -594,6 +580,10 @@ function HomeTab({
             </p>
           </div>
           <ProgressRing progress={progress} label={formatDuration(todayWorkMinutes)} />
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+          <TimeMetric label="出勤時刻" value={formatTime(todayLog?.clock_in ?? null)} />
+          <TimeMetric label="退勤時刻" value={formatTime(todayLog?.clock_out ?? null)} />
         </div>
       </section>
 
@@ -653,6 +643,15 @@ function HomeTab({
   );
 }
 
+function TimeMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-4 py-3">
+      <p className="text-xs font-bold text-slate-500">{label}</p>
+      <p className="mt-1 text-lg font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
 const ojisanImagesByStatus: Record<Status, string> = {
   not_clocked_in: "/characters/ojisan/before-work.png",
   working: "/characters/ojisan/working.png",
@@ -695,17 +694,17 @@ function OjisanCompanion({ status }: { status: Status }) {
   );
 
   return (
-    <section className="flex items-center gap-3 rounded-xl bg-slate-50/90 px-3 py-4 ring-1 ring-slate-100">
-      <span className="grid h-[136px] w-[136px] shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-100">
+    <section className="flex items-center gap-4 rounded-xl bg-slate-50/90 px-3 py-4 ring-1 ring-slate-100">
+      <span className="grid h-[152px] w-[152px] shrink-0 place-items-center overflow-hidden rounded-xl bg-slate-100">
         <Image
           src={ojisanImagesByStatus[status]}
           alt=""
-          width={136}
-          height={136}
-          className="h-[128px] w-[128px] object-contain [image-rendering:pixelated]"
+          width={152}
+          height={152}
+          className="h-[144px] w-[144px] object-contain [image-rendering:pixelated]"
         />
       </span>
-      <p className="relative min-w-0 rounded-xl bg-white px-4 py-4 text-base font-bold leading-7 text-slate-600 shadow-sm ring-1 ring-slate-100 before:absolute before:left-[-6px] before:top-1/2 before:h-3 before:w-3 before:-translate-y-1/2 before:rotate-45 before:bg-white before:ring-1 before:ring-slate-100">
+      <p className="relative min-w-0 rounded-xl bg-white px-4 py-5 text-base font-bold leading-7 text-slate-600 shadow-sm ring-1 ring-slate-100 before:absolute before:left-[-6px] before:top-1/2 before:h-3 before:w-3 before:-translate-y-1/2 before:rotate-45 before:bg-white before:ring-1 before:ring-slate-100">
         <span className="relative">{message}</span>
       </p>
     </section>
@@ -1274,12 +1273,6 @@ function getStatus(row: SalesAttendance | null): Status {
   if (!row?.clock_in) return "not_clocked_in";
   if (!row.clock_out) return "working";
   return "clocked_out";
-}
-
-function getStatusLabel(status: Status) {
-  if (status === "working") return "勤務中";
-  if (status === "clocked_out") return "退勤済";
-  return "未出勤";
 }
 
 function getGrossMinutes(row: SalesAttendance | null) {
