@@ -83,7 +83,7 @@ export default function LandingPage() {
     <main className="min-h-screen bg-white text-slate-950">
       <MarketingHeader />
 
-      <section className="relative isolate overflow-hidden bg-slate-950 px-4 py-16 text-white sm:py-20 lg:py-24">
+      <section className="lp-hero-section relative isolate overflow-hidden bg-slate-950 px-4 py-16 text-white sm:py-20 lg:py-24">
         <HeroScene />
         <div className="relative z-10 mx-auto grid w-full max-w-6xl translate-y-12 gap-10 sm:translate-y-12 lg:translate-y-0 lg:grid-cols-[1fr_420px] lg:items-center">
           <div className="max-w-3xl">

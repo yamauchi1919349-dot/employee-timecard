@@ -33,6 +33,18 @@ body {
   animation: slide-up 260ms ease both;
 }
 
+@media (display-mode: standalone) and (max-width: 639px) {
+  .lp-hero-section {
+    padding-top: calc(4rem + env(safe-area-inset-top, 0px));
+  }
+}
+
+@media (display-mode: standalone) and (min-width: 640px) and (max-width: 1023px) {
+  .lp-hero-section {
+    padding-top: calc(5rem + env(safe-area-inset-top, 0px));
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
