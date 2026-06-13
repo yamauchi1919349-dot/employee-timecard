@@ -93,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
         setSession(null);
         setProfile(null);
+        setProfileError(null);
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
