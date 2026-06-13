@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Timecard",
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
   },
   icons: {
     icon: [

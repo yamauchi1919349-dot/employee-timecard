@@ -83,9 +83,9 @@ export default function LandingPage() {
     <main className="min-h-screen bg-white text-slate-950">
       <MarketingHeader />
 
-      <section className="lp-hero-section relative isolate overflow-hidden bg-slate-950 px-4 py-16 text-white sm:py-20 lg:py-24">
+      <section className="lp-hero-section relative isolate overflow-hidden bg-slate-950 px-4 pb-16 pt-28 text-white sm:pb-20 sm:pt-32 lg:py-24">
         <HeroScene />
-        <div className="relative z-10 mx-auto grid w-full max-w-6xl translate-y-12 gap-10 sm:translate-y-12 lg:translate-y-0 lg:grid-cols-[1fr_420px] lg:items-center">
+        <div className="relative z-10 mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[1fr_420px] lg:items-center">
           <div className="max-w-3xl">
             <p className="text-sm font-black text-blue-200">ArcNest Timecard</p>
             <h1 className="mt-5 text-4xl font-black leading-tight tracking-normal sm:text-5xl lg:text-6xl">
