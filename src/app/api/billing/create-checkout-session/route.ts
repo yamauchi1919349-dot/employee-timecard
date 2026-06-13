@@ -77,7 +77,6 @@ export async function POST(request: Request) {
         metadata: {
           company_id: company.id,
           plan: FIXED_MONTHLY_PLAN,
-          // Future extension point: add a metered or quantity item for staff_count * 100 JPY.
           billing_model: "fixed_monthly",
         },
       },

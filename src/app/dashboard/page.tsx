@@ -401,7 +401,8 @@ function BillingCard({
               : "ArcNest Timecard 月額利用料"}
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            7日間無料トライアル終了後、月額3,980円（税込）の固定サブスクリプションとして自動課金されます。
+            7日間無料トライアル終了後、特別価格 月額3,980円（税込）の固定サブスクリプションとして自動課金されます。
+            通常価格は月額6,480円（税込）です。スタッフ人数による追加料金はありません。
             カード情報はStripeで安全に管理されます。
           </p>
           {graceActive && company?.billing_grace_period_ends_at ? (
@@ -442,7 +443,7 @@ function BillingCard({
             </button>
           )}
           <p className="max-w-xs text-xs font-semibold leading-5 text-slate-500">
-            将来のスタッフ人数課金に備え、契約は会社単位で管理します。
+            想定利用人数は1社あたり50名程度までです。大規模利用は個別にご相談ください。
           </p>
         </div>
       </div>

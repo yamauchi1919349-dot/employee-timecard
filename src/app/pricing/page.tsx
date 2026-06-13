@@ -2,12 +2,10 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { MarketingLegalFooter } from "@/components/MarketingLegalFooter";
 
-const pricingExamples = [
-  { staff: "1名利用", price: "4,080円" },
-  { staff: "5名利用", price: "4,480円" },
-  { staff: "10名利用", price: "4,980円" },
-  { staff: "20名利用", price: "5,980円" },
-  { staff: "50名利用", price: "8,980円" },
+const pricingNotes = [
+  { label: "スタッフ人数による追加料金", value: "なし" },
+  { label: "想定利用人数", value: "1社あたり50名程度まで" },
+  { label: "大規模利用", value: "個別相談" },
 ];
 
 const includedFeatures = [
@@ -23,7 +21,7 @@ const includedFeatures = [
 
 export const metadata: Metadata = {
   title: "料金 | ArcNest",
-  description: "ArcNest Timecardの料金。7日間無料トライアル終了後、月額3,980円から自動課金される分かりやすい料金体系です。",
+  description: "ArcNest Timecardの料金。特別価格は月額3,980円、通常価格は月額6,480円。スタッフ人数による追加料金はありません。",
 };
 
 export default function PricingPage() {
@@ -51,33 +49,34 @@ export default function PricingPage() {
             <p className="text-sm font-black text-blue-700">Pricing</p>
             <h1 className="mt-3 text-4xl font-black tracking-normal sm:text-5xl">料金プラン</h1>
             <p className="mt-5 text-base font-semibold leading-8 text-slate-600">
-              7日間無料トライアル終了後、自動課金に移行します。現在の初期課金は月額3,980円（税込）の固定サブスクリプションです。
-              将来的にスタッフ利用料を追加する場合も、分かりやすい月額料金としてご案内します。
+              7日間無料トライアル終了後、自動課金に移行します。現在は特別価格として月額3,980円（税込）で提供しています。
+              スタッフ人数による追加料金はありません。
             </p>
           </div>
 
           <div className="mt-10 grid gap-5 lg:grid-cols-[1fr_0.85fr]">
             <section className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm sm:p-8">
               <p className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                創業応援価格として提供中
+                特別価格として提供中
               </p>
               <h2 className="mt-5 text-2xl font-black tracking-normal text-slate-950">
-                月額3,980円 + スタッフ1名あたり100円
+                特別価格 月額3,980円
               </h2>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl bg-slate-50 p-5">
-                  <p className="text-sm font-bold text-slate-500">基本料金</p>
+                <div className="rounded-2xl bg-blue-50 p-5">
+                  <p className="text-sm font-bold text-blue-700">特別価格</p>
                   <p className="mt-2 text-4xl font-black tracking-normal">3,980円</p>
                   <p className="mt-1 text-sm font-bold text-slate-500">/ 月</p>
                 </div>
-                <div className="rounded-2xl bg-blue-50 p-5">
-                  <p className="text-sm font-bold text-blue-700">スタッフ利用料</p>
-                  <p className="mt-2 text-4xl font-black tracking-normal">100円</p>
-                  <p className="mt-1 text-sm font-bold text-slate-500">1名あたり / 月</p>
+                <div className="rounded-2xl bg-slate-50 p-5">
+                  <p className="text-sm font-bold text-slate-500">通常価格</p>
+                  <p className="mt-2 text-4xl font-black tracking-normal">6,480円</p>
+                  <p className="mt-1 text-sm font-bold text-slate-500">/ 月</p>
                 </div>
               </div>
               <p className="mt-6 text-sm font-semibold leading-7 text-slate-600">
-                全機能を利用できます。人数による機能制限はありません。ArcNest Timecardは給与計算機能ではなく、勤怠管理・月次集計・CSV出力を行うサービスです。
+                スタッフ人数による追加料金はありません。想定利用人数は1社あたり50名程度までです。
+                大規模利用をご希望の場合は個別にご相談ください。ArcNest Timecardは給与計算機能ではなく、勤怠管理・月次集計・CSV出力を行うサービスです。
               </p>
               <Link
                 href="/contact"
@@ -88,18 +87,18 @@ export default function PricingPage() {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <h2 className="text-2xl font-black tracking-normal">料金例</h2>
+              <h2 className="text-2xl font-black tracking-normal">料金の考え方</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                基本料金3,980円に、スタッフ人数分の利用料を加算します。
+                会社単位の月額固定料金です。料金はスタッフ人数で変わりません。
               </p>
               <div className="mt-6 grid gap-3">
-                {pricingExamples.map((example) => (
+                {pricingNotes.map((item) => (
                   <div
-                    key={example.staff}
+                    key={item.label}
                     className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
                   >
-                    <span className="text-sm font-black text-slate-700">{example.staff}</span>
-                    <span className="text-lg font-black text-slate-950">月額 {example.price}</span>
+                    <span className="text-sm font-black text-slate-700">{item.label}</span>
+                    <span className="text-lg font-black text-slate-950">{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -112,7 +111,7 @@ export default function PricingPage() {
                 <p className="text-sm font-black text-blue-700">Included</p>
                 <h2 className="mt-2 text-2xl font-black tracking-normal">全機能利用可能</h2>
               </div>
-              <p className="text-sm font-semibold text-slate-500">人数による機能制限なし</p>
+              <p className="text-sm font-semibold text-slate-500">スタッフ人数による追加料金なし</p>
             </div>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {includedFeatures.map((feature) => (
@@ -139,7 +138,8 @@ export default function PricingPage() {
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-black text-slate-500">料金体系</p>
-              <p className="mt-2 text-xl font-black">基本料金 + スタッフ人数</p>
+              <p className="mt-2 text-xl font-black">月額固定</p>
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">スタッフ人数による追加料金なし</p>
             </div>
           </div>
 
@@ -149,7 +149,10 @@ export default function PricingPage() {
               創業応援価格について
             </h2>
             <div className="mt-4 grid gap-3 text-sm font-semibold leading-7 text-slate-700">
-              <p>現在、ArcNest Timecard は創業応援価格で提供しています。</p>
+              <p>現在、ArcNest Timecard は特別価格で提供しています。</p>
+              <p>特別価格は月額3,980円、通常価格は月額6,480円です。</p>
+              <p>スタッフ人数による追加料金はありません。想定利用人数は1社あたり50名程度までです。</p>
+              <p>大規模利用をご希望の場合は個別にご相談ください。</p>
               <p>今後、機能追加やサービス拡充に伴い料金改定を行う場合があります。</p>
               <p>ただし、既存契約者については契約時の料金を維持する予定です。</p>
               <p>ArcNestは、中小企業や小規模事業者が導入しやすいサービスを目指しています。</p>
