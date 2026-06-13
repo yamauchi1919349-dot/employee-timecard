@@ -102,9 +102,10 @@ export function SalesTimecardApp() {
     reason: "",
   }));
 
+  const timecardReady = payload !== null;
   const todayLog = payload?.todayLog ?? null;
-  const status = getStatus(todayLog);
-  const todayWorkMinutes = getWorkMinutes(todayLog, status === "working" ? now : null);
+  const status = timecardReady ? getStatus(todayLog) : null;
+  const todayWorkMinutes = timecardReady ? getWorkMinutes(todayLog, status === "working" ? now : null) : 0;
   const progress = Math.min(100, (todayWorkMinutes / BASIC_WORK_MINUTES) * 100);
   const calendarRows = payload?.calendarRows ?? payload?.ownMonthRows ?? [];
   const monthlyRows = payload?.monthlyRows ?? payload?.ownMonthRows ?? [];
@@ -307,7 +308,7 @@ export function SalesTimecardApp() {
           </p>
         ) : null}
 
-        {activeTab === "home" ? (
+        {activeTab === "home" && status ? (
           <HomeTab
             now={now}
             status={status}
@@ -323,6 +324,8 @@ export function SalesTimecardApp() {
             onClockOut={() => postJson("/api/auth/clock-out", { breakMinutes })}
           />
         ) : null}
+
+        {activeTab === "home" && !status ? <HomeStatusLoading now={now} /> : null}
 
         {activeTab === "calendar" ? (
           <CalendarTab
@@ -505,6 +508,25 @@ function AppHeader({
         ↻
       </button>
     </header>
+  );
+}
+
+function HomeStatusLoading({ now }: { now: Date }) {
+  return (
+    <>
+      <section className="text-center">
+        <p className="text-6xl font-black tracking-normal">{formatClock(now)}</p>
+        <p className="mt-3 text-xl font-black text-slate-500">{formatDate(now)}</p>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 text-center shadow-sm ring-1 ring-slate-100">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#EEF2FF] text-[#6366F1]">
+          <IconClock />
+        </div>
+        <h2 className="mt-4 text-xl font-black text-slate-950">勤怠状態を確認中</h2>
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-500">最新の打刻状態を読み込んでいます。</p>
+      </section>
+    </>
   );
 }
 
