@@ -278,15 +278,15 @@ export function SalesTimecardApp() {
 
   if (payload && billingRestricted) {
     return (
-      <main data-route="sales-timecard-app-billing-restricted" className="min-h-screen bg-white px-5 pb-10 pt-8 text-[#0F172A]">
-        <div className="mx-auto flex w-full max-w-md flex-col gap-4">
+      <main data-route="sales-timecard-app-billing-restricted" className="min-h-screen bg-white px-5 pb-10 pt-10 text-[#0F172A]">
+        <div className="mx-auto flex w-full max-w-md flex-col gap-5">
           <AppHeader
             companyName={payload.company?.name ?? "Timecard"}
             userName={profile?.name ?? ""}
             onRefresh={loadData}
-            onSignOut={signOut}
           />
           <StaffBillingRestrictedCard message={payload.message ?? getBillingRestrictionMessage()} />
+          <StaffCompanyFooter companyName={payload.company?.name ?? "Timecard"} onSignOut={signOut} />
           <DashboardLegalLinks showContact={false} />
         </div>
       </main>
@@ -294,13 +294,12 @@ export function SalesTimecardApp() {
   }
 
   return (
-    <main data-route="sales-timecard-app" className="min-h-screen bg-white pb-28 pt-8 text-[#0F172A]">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-4 px-5">
+    <main data-route="sales-timecard-app" className="min-h-screen bg-white pb-28 pt-10 text-[#0F172A]">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-5 px-5">
         <AppHeader
           companyName={payload?.company?.name ?? "Timecard"}
           userName={profile?.name ?? ""}
           onRefresh={loadData}
-          onSignOut={signOut}
         />
 
         {message ? (
@@ -357,6 +356,7 @@ export function SalesTimecardApp() {
           />
         ) : null}
 
+        <StaffCompanyFooter companyName={payload?.company?.name ?? "Timecard"} onSignOut={signOut} />
         <DashboardLegalLinks showContact={false} />
       </div>
 
@@ -487,24 +487,15 @@ function AppHeader({
   companyName,
   userName,
   onRefresh,
-  onSignOut,
 }: {
   companyName: string;
   userName: string;
   onRefresh: () => void;
-  onSignOut: () => void;
 }) {
   return (
     <header className="relative min-h-16 px-1">
       <div className="absolute left-0 top-0 flex max-w-[calc(100%-56px)] items-center gap-3">
         <p className="min-w-0 truncate text-sm font-black text-[#4F46E5]">{companyName}</p>
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="shrink-0 bg-transparent p-0 text-xs font-bold text-slate-400 underline-offset-4 hover:text-slate-600 hover:underline"
-        >
-          ログアウト
-        </button>
       </div>
       <p className="pt-8 text-center text-sm font-black text-slate-500">{userName}</p>
       <button
@@ -516,6 +507,21 @@ function AppHeader({
         ↻
       </button>
     </header>
+  );
+}
+
+function StaffCompanyFooter({ companyName, onSignOut }: { companyName: string; onSignOut: () => void }) {
+  return (
+    <section className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+      <p className="min-w-0 truncate text-sm font-black text-slate-500">{companyName}</p>
+      <button
+        type="button"
+        onClick={onSignOut}
+        className="grid min-h-11 shrink-0 place-items-center rounded-full bg-white px-4 text-sm font-black text-slate-500 shadow-sm ring-1 ring-slate-100 transition hover:text-slate-700 active:scale-95"
+      >
+        ログアウト
+      </button>
+    </section>
   );
 }
 
