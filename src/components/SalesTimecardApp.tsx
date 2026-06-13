@@ -286,8 +286,7 @@ export function SalesTimecardApp() {
             onRefresh={loadData}
           />
           <StaffBillingRestrictedCard message={payload.message ?? getBillingRestrictionMessage()} />
-          <StaffCompanyFooter companyName={payload.company?.name ?? "Timecard"} onSignOut={signOut} />
-          <DashboardLegalLinks showContact={false} />
+          <DashboardLegalLinks showContact={false} onSignOut={signOut} />
         </div>
       </main>
     );
@@ -356,8 +355,7 @@ export function SalesTimecardApp() {
           />
         ) : null}
 
-        <StaffCompanyFooter companyName={payload?.company?.name ?? "Timecard"} onSignOut={signOut} />
-        <DashboardLegalLinks showContact={false} />
+        <DashboardLegalLinks showContact={false} onSignOut={signOut} />
       </div>
 
       <BottomTabs activeTab={activeTab} onChange={setActiveTab} />
@@ -507,21 +505,6 @@ function AppHeader({
         ↻
       </button>
     </header>
-  );
-}
-
-function StaffCompanyFooter({ companyName, onSignOut }: { companyName: string; onSignOut: () => void }) {
-  return (
-    <section className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
-      <p className="min-w-0 truncate text-sm font-black text-slate-500">{companyName}</p>
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="grid min-h-11 shrink-0 place-items-center rounded-full bg-white px-4 text-sm font-black text-slate-500 shadow-sm ring-1 ring-slate-100 transition hover:text-slate-700 active:scale-95"
-      >
-        ログアウト
-      </button>
-    </section>
   );
 }
 
