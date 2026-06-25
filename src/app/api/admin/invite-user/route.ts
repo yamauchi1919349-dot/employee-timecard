@@ -57,7 +57,10 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
-    if (duplicateError) throw duplicateError;
+    if (duplicateError) {
+      console.error("[invite-user] duplicate profile check failed", toLogError(duplicateError));
+      throw duplicateError;
+    }
     if (existingProfile) {
       return NextResponse.json({ message: "同じ企業内に同じメールアドレスが登録済みです。" }, { status: 409 });
     }
@@ -70,13 +73,17 @@ export async function POST(request: Request) {
         .eq("company_id", inviter.company_id)
         .maybeSingle();
 
-      if (storeError) throw storeError;
+      if (storeError) {
+        console.error("[invite-user] store check failed", toLogError(storeError));
+        throw storeError;
+      }
       if (!store) {
         return NextResponse.json({ message: "指定された店舗が見つかりません。" }, { status: 400 });
       }
     }
 
     const appUrl = getAppBaseUrl();
+    const redirectTo = `${appUrl}/reset-password`;
     const { data: inviteData, error: inviteError } =
       await supabase.auth.admin.inviteUserByEmail(email, {
         data: {
@@ -84,17 +91,35 @@ export async function POST(request: Request) {
           company_id: inviter.company_id,
           role,
         },
-        redirectTo: `${appUrl}/reset-password`,
+        redirectTo,
       });
 
     if (inviteError) {
+      console.error("[invite-user] inviteUserByEmail failed", toLogError(inviteError));
       return NextResponse.json(
-        { message: `招待メールの送信に失敗しました: ${inviteError.message}` },
+        withDevError(
+          { message: `招待メールの送信に失敗しました: ${inviteError.message}` },
+          "inviteUserByEmail",
+          inviteError,
+          { redirectTo },
+        ),
         { status: 400 },
       );
     }
     if (!inviteData.user?.id) {
-      return NextResponse.json({ message: "招待ユーザーの作成に失敗しました。" }, { status: 500 });
+      console.error("[invite-user] inviteUserByEmail returned no user id", {
+        hasUser: Boolean(inviteData.user),
+        redirectTo,
+      });
+      return NextResponse.json(
+        withDevError(
+          { message: "招待ユーザーの作成に失敗しました。" },
+          "inviteUserByEmail",
+          new Error("Supabase invite response did not include user.id."),
+          { redirectTo },
+        ),
+        { status: 500 },
+      );
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -113,16 +138,26 @@ export async function POST(request: Request) {
       .single();
 
     if (profileError) {
+      console.error("[invite-user] profile insert failed", toLogError(profileError));
       return NextResponse.json(
-        { message: `プロフィール作成に失敗しました: ${profileError.message}` },
+        withDevError(
+          { message: `プロフィール作成に失敗しました: ${profileError.message}` },
+          "profile insert",
+          profileError,
+        ),
         { status: 400 },
       );
     }
 
     return NextResponse.json({ profile });
   } catch (error) {
+    console.error("[invite-user] unexpected failure", toLogError(error));
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : "招待処理に失敗しました。" },
+      withDevError(
+        { message: error instanceof Error ? error.message : "招待処理に失敗しました。" },
+        "unexpected",
+        error,
+      ),
       { status: 500 },
     );
   }
@@ -134,4 +169,52 @@ function normalizeEmployeeNumber(value: string | null | undefined) {
     return NextResponse.json({ message: "社員番号は64文字以内で入力してください。" }, { status: 400 });
   }
   return employeeNumber;
+}
+
+function withDevError<T extends Record<string, unknown>>(
+  payload: T,
+  source: string,
+  error: unknown,
+  extra?: Record<string, unknown>,
+) {
+  if (process.env.NODE_ENV === "production") return payload;
+  return {
+    ...payload,
+    debug: {
+      source,
+      error: toLogError(error),
+      ...extra,
+    },
+  };
+}
+
+function toLogError(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: process.env.NODE_ENV === "production" ? undefined : error.stack,
+    };
+  }
+
+  if (error && typeof error === "object") {
+    const payload = error as {
+      name?: unknown;
+      message?: unknown;
+      code?: unknown;
+      status?: unknown;
+      details?: unknown;
+      hint?: unknown;
+    };
+    return {
+      name: typeof payload.name === "string" ? payload.name : undefined,
+      message: typeof payload.message === "string" ? payload.message : undefined,
+      code: typeof payload.code === "string" ? payload.code : undefined,
+      status: typeof payload.status === "number" || typeof payload.status === "string" ? payload.status : undefined,
+      details: typeof payload.details === "string" ? payload.details : undefined,
+      hint: typeof payload.hint === "string" ? payload.hint : undefined,
+    };
+  }
+
+  return { message: String(error) };
 }
