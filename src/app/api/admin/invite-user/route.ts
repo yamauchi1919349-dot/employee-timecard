@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAppBaseUrl } from "@/lib/app-url";
 import { requireActiveCompanySubscription } from "@/lib/billing-access";
 import { getEffectiveTenantRole } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile, TenantRole } from "@/lib/supabase";
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
+    const appUrl = getAppBaseUrl();
     const { data: inviteData, error: inviteError } =
       await supabase.auth.admin.inviteUserByEmail(email, {
         data: {
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
           company_id: inviter.company_id,
           role,
         },
-        redirectTo: `${siteUrl}/reset-password`,
+        redirectTo: `${appUrl}/reset-password`,
       });
 
     if (inviteError) {
