@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isDeveloperProfile } from "@/lib/developer-mode";
+import { isDeveloperCompanyProfile } from "@/lib/developer-mode";
 import { getAppUrl, getStripe } from "@/lib/stripe";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { normalizeRole } from "@/lib/time-edit";
@@ -8,14 +8,14 @@ export async function POST(request: Request) {
   try {
     const owner = await getAuthenticatedProfile(request);
     if (!owner) return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
-    if (isDeveloperProfile(owner)) {
+    const supabase = createSupabaseAdmin();
+    if (await isDeveloperCompanyProfile(owner, supabase)) {
       return NextResponse.json({ message: "Developer Mode does not require Billing Portal." }, { status: 403 });
     }
     if (normalizeRole(owner.role) !== "owner") {
       return NextResponse.json({ message: "支払い管理はownerのみ実行できます。" }, { status: 403 });
     }
 
-    const supabase = createSupabaseAdmin();
     const { data: company, error } = await supabase
       .from("companies")
       .select("id,stripe_customer_id")

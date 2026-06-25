@@ -25,6 +25,7 @@ type DashboardPayload = {
   attendance: AuthAttendance[];
   pendingTimeEditRequestCount?: number;
   developerMode?: boolean;
+  developerCompanyMode?: boolean;
 };
 
 type AuthAttendance = {
@@ -72,7 +73,8 @@ function DashboardContent({ role }: { role: string }) {
   const [billingLoading, setBillingLoading] = useState<"checkout" | "portal" | null>(null);
   const displayedMessage = message ?? checkoutMessage;
   const isDeveloperMode = developerMode || data?.developerMode === true;
-  const billingAllowed = isDeveloperMode || isCompanySubscriptionActive(data?.company);
+  const developerBillingBypass = isDeveloperMode || data?.developerCompanyMode === true;
+  const billingAllowed = developerBillingBypass || isCompanySubscriptionActive(data?.company);
   const ownerBillingRestricted = role === "owner" && !billingAllowed;
   const nonOwnerBillingRestricted = role !== "owner" && !billingAllowed;
 

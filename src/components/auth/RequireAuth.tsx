@@ -6,7 +6,7 @@ import { useAuth } from "./AuthProvider";
 import { TenantRole } from "@/lib/types";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { developerMode, session, loading, profileError, signOut } = useAuth();
+  const { developerCompanyMode, developerMode, session, loading, profileError, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -47,7 +47,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return (
     <>
       {children}
-      {developerMode ? <DeveloperModeBadge /> : null}
+      {developerMode || developerCompanyMode ? <DeveloperModeBadge /> : null}
     </>
   );
 }

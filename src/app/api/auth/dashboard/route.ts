@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBusinessDate } from "@/lib/attendance";
-import { getEffectiveTenantRole, isDeveloperProfile } from "@/lib/developer-mode";
+import { getEffectiveTenantRole, isDeveloperCompanyProfile, isDeveloperProfile } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 
 export async function GET(request: Request) {
@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const supabase = createSupabaseAdmin();
     const workDate = getBusinessDate();
     const developerMode = isDeveloperProfile(profile);
+    const developerCompanyMode = await isDeveloperCompanyProfile(profile, supabase);
     const role = getEffectiveTenantRole(profile);
     const { data: company, error: companyError } = await supabase
       .from("companies")
@@ -56,6 +57,7 @@ export async function GET(request: Request) {
       profile,
       company,
       developerMode,
+      developerCompanyMode,
       workDate,
       todayLog,
       attendance: attendance ?? [],

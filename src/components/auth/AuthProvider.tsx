@@ -9,6 +9,7 @@ type AuthState = {
   session: Session | null;
   profile: Profile | null;
   developerMode: boolean;
+  developerCompanyMode: boolean;
   loading: boolean;
   profileError: string | null;
   refreshProfile: () => Promise<void>;
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [developerMode, setDeveloperMode] = useState(false);
+  const [developerCompanyMode, setDeveloperCompanyMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!nextSession?.access_token) {
       setProfile(null);
       setDeveloperMode(false);
+      setDeveloperCompanyMode(false);
       setProfileError(null);
       return;
     }
@@ -41,12 +44,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const payload = (await response.json()) as {
       profile?: Profile;
       developerMode?: boolean;
+      developerCompanyMode?: boolean;
       message?: string;
     };
 
     if (!response.ok || !payload.profile) {
       setProfile(null);
       setDeveloperMode(false);
+      setDeveloperCompanyMode(false);
       setProfileError(payload.message ?? "管理者に招待設定を確認してください。");
       return;
     }
@@ -54,12 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (payload.profile.user_id !== nextSession.user.id) {
       setProfile(null);
       setDeveloperMode(false);
+      setDeveloperCompanyMode(false);
       setProfileError("ログイン中ユーザーとプロフィールの user_id が一致しません。");
       return;
     }
 
     setProfile(payload.profile);
     setDeveloperMode(payload.developerMode === true);
+    setDeveloperCompanyMode(payload.developerCompanyMode === true);
     setProfileError(null);
   }
 
@@ -71,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setProfile(null);
       setDeveloperMode(false);
+      setDeveloperCompanyMode(false);
       await loadProfile(data.session);
       if (mounted) setLoading(false);
     });
@@ -79,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(nextSession);
       setProfile(null);
       setDeveloperMode(false);
+      setDeveloperCompanyMode(false);
       setProfileError(null);
       setLoading(true);
       loadProfile(nextSession).finally(() => setLoading(false));
@@ -96,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       developerMode,
+      developerCompanyMode,
       loading,
       profileError,
       refreshProfile: () => loadProfile(session),
@@ -104,11 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(null);
         setProfile(null);
         setDeveloperMode(false);
+        setDeveloperCompanyMode(false);
         setProfileError(null);
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [developerMode, loading, profile, profileError, session, supabase],
+    [developerCompanyMode, developerMode, loading, profile, profileError, session, supabase],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

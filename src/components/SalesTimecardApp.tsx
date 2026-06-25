@@ -38,6 +38,7 @@ type TimecardPayload = {
     billing_grace_period_ends_at?: string | null;
   } | null;
   developerMode?: boolean;
+  developerCompanyMode?: boolean;
   billingRestricted?: boolean;
   message?: string;
   workDate: string;
@@ -113,8 +114,9 @@ export function SalesTimecardApp() {
   const summary = payload?.summary ?? emptySummary();
   const unreadCount = notifications.filter((notification) => !notification.read_at).length;
   const developerMode = payload?.developerMode === true;
+  const developerBillingBypass = developerMode || payload?.developerCompanyMode === true;
   const billingRestricted =
-    !developerMode &&
+    !developerBillingBypass &&
     (Boolean(payload?.billingRestricted) || (payload?.company ? !isCompanySubscriptionActive(payload.company) : false));
 
   const loadData = useCallback(async () => {
