@@ -7,6 +7,13 @@ type LegalSection = {
   body: ReactNode;
 };
 
+const legalLinks = [
+  { href: "/terms", label: "利用規約" },
+  { href: "/privacy", label: "プライバシーポリシー" },
+  { href: "/legal", label: "特定商取引法に基づく表記" },
+  { href: "/contact", label: "お問い合わせ" },
+];
+
 export function LegalPage({
   title,
   lead,
@@ -45,21 +52,11 @@ export function LegalPage({
         </section>
 
         <footer className="flex flex-wrap gap-3 text-sm font-bold text-slate-500">
-          <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/terms">
-            利用規約
-          </Link>
-          <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/privacy">
-            プライバシーポリシー
-          </Link>
-          <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/legal">
-            特定商取引法に基づく表記
-          </Link>
-          <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/company">
-            会社情報
-          </Link>
-          <Link className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href="/contact">
-            お問い合わせ
-          </Link>
+          {legalLinks.map((link) => (
+            <Link key={link.href} className="rounded-xl bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200 hover:text-blue-700" href={link.href}>
+              {link.label}
+            </Link>
+          ))}
         </footer>
       </div>
     </main>

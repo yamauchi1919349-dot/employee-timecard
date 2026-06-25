@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { LegalPage } from "@/components/LegalPage";
 
-const contactEmail = "support@example.com";
+const contactEmail = "support@arcnest.jp";
 
 export const metadata: Metadata = {
   title: "お問い合わせ | ArcNest",

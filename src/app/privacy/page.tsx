@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 const updatedAt = "2026年6月10日";
-const contactEmail = "support@example.com";
+const contactEmail = "support@arcnest.jp";
 
 function Paragraphs({ children }: { children: ReactNode }) {
   return <div className="space-y-3">{children}</div>;

@@ -4,7 +4,6 @@ const legalLinks = [
   { href: "/terms", label: "利用規約" },
   { href: "/privacy", label: "プライバシーポリシー" },
   { href: "/legal", label: "特定商取引法に基づく表記" },
-  { href: "/company", label: "会社情報" },
   { href: "/contact", label: "お問い合わせ" },
 ];
 

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "特定商取引法に基づく表記 | ArcNest",
 };
 
-const contactEmail = "support@example.com";
+const contactEmail = "support@arcnest.jp";
 
 function Paragraphs({ children }: { children: ReactNode }) {
   return <div className="space-y-3">{children}</div>;
@@ -36,7 +36,7 @@ export default function LegalNoticePage() {
           title: "運営責任者",
           body: (
             <Paragraphs>
-              <p>山内 良介</p>
+              <p>山内　亮介</p>
               <p>※正式な屋号・事業形態に応じて変更する場合があります。</p>
             </Paragraphs>
           ),
