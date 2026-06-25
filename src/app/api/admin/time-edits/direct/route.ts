@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireActiveCompanySubscription } from "@/lib/billing-access";
-import { parseDateTimeLocal, SALES_WORK_TYPES, normalizeRole } from "@/lib/time-edit";
+import { getEffectiveTenantRole } from "@/lib/developer-mode";
+import { parseDateTimeLocal, SALES_WORK_TYPES } from "@/lib/time-edit";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance, SalesWorkType } from "@/lib/types";
 
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   try {
     const owner = await getAuthenticatedProfile(request);
     if (!owner) return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
-    if (normalizeRole(owner.role) !== "owner") {
+    if (getEffectiveTenantRole(owner) !== "owner") {
       return NextResponse.json({ message: "owner権限が必要です。" }, { status: 403 });
     }
     const billingRestriction = await requireActiveCompanySubscription(owner);

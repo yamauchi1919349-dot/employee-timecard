@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getBusinessDate } from "@/lib/attendance";
 import { normalizeCompanySettings, roundDateToInterval } from "@/lib/admin-settings";
 import { getBillingRestrictionMessage, isCompanySubscriptionActive } from "@/lib/billing-status";
+import { getEffectiveTenantRole, isDeveloperProfile } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance, CompanySettings } from "@/lib/types";
 
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
     const start = `${month}-01`;
     const end = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
     const supabase = createSupabaseAdmin();
-    const role = profile.role.trim().toLowerCase();
+    const developerMode = isDeveloperProfile(profile);
+    const role = getEffectiveTenantRole(profile);
 
     const { data: company, error: companyError } = await supabase
       .from("companies")
@@ -34,10 +36,11 @@ export async function GET(request: Request) {
     if (companyError) throw companyError;
     const settings = normalizeCompanySettings(company);
 
-    if (!isCompanySubscriptionActive(company)) {
+    if (!developerMode && !isCompanySubscriptionActive(company)) {
       return NextResponse.json({
         profile,
         company,
+        developerMode,
         billingRestricted: true,
         message: getBillingRestrictionMessage(),
         workDate,
@@ -85,6 +88,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       profile,
       company,
+      developerMode,
       workDate,
       selectedMonth: month,
       todayLog,

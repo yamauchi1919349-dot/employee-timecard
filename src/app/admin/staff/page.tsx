@@ -33,8 +33,8 @@ export default function StaffAdminPage() {
 }
 
 function StaffAdminContent() {
-  const { session, profile } = useAuth();
-  const normalizedRole = profile?.role?.trim().toLowerCase() ?? "";
+  const { developerMode, session, profile } = useAuth();
+  const normalizedRole = developerMode ? "owner" : profile?.role?.trim().toLowerCase() ?? "";
   const [staff, setStaff] = useState<Profile[]>([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

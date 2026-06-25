@@ -25,8 +25,8 @@ export default function AdminMonthlyPage() {
 }
 
 function AdminMonthlyContent() {
-  const { session, profile } = useAuth();
-  const role = profile?.role?.trim().toLowerCase() ?? "";
+  const { developerMode, session, profile } = useAuth();
+  const role = developerMode ? "owner" : profile?.role?.trim().toLowerCase() ?? "";
   const canView = ["owner", "manager", "admin"].includes(role);
   const [staff, setStaff] = useState<Profile[]>([]);
   const [month, setMonth] = useState(() => getCurrentMonth());

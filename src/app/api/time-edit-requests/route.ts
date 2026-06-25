@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireActiveCompanySubscription } from "@/lib/billing-access";
+import { getEffectiveTenantRole } from "@/lib/developer-mode";
 import { parseDateTimeLocal, TIME_EDIT_REQUEST_TYPES, normalizeRole } from "@/lib/time-edit";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { TimeEditRequestType } from "@/lib/types";
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     const billingRestriction = await requireActiveCompanySubscription(profile);
     if (billingRestriction) return billingRestriction;
 
-    const role = normalizeRole(profile.role);
+    const role = getEffectiveTenantRole(profile);
     const supabase = createSupabaseAdmin();
     let query = supabase
       .from("time_edit_requests")

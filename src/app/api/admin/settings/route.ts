@@ -6,6 +6,7 @@ import {
   normalizeCompanySettings,
 } from "@/lib/admin-settings";
 import { requireActiveCompanySubscription } from "@/lib/billing-access";
+import { getEffectiveTenantRole } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 
 const ADMIN_ROLES = new Set(["owner", "manager", "admin"]);
@@ -81,7 +82,7 @@ async function requireAdminProfile(request: Request) {
     return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
   }
 
-  const role = profile.role?.trim().toLowerCase();
+  const role = getEffectiveTenantRole(profile);
   if (!ADMIN_ROLES.has(role)) {
     return NextResponse.json({ message: "管理設定を操作する権限がありません。" }, { status: 403 });
   }

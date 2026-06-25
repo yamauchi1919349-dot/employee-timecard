@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBusinessDate } from "@/lib/attendance";
+import { getEffectiveTenantRole, isDeveloperProfile } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 
 export async function GET(request: Request) {
@@ -11,6 +12,8 @@ export async function GET(request: Request) {
 
     const supabase = createSupabaseAdmin();
     const workDate = getBusinessDate();
+    const developerMode = isDeveloperProfile(profile);
+    const role = getEffectiveTenantRole(profile);
     const { data: company, error: companyError } = await supabase
       .from("companies")
       .select("id,name,plan,stripe_customer_id,stripe_subscription_id,subscription_status,current_period_end,billing_grace_period_started_at,billing_grace_period_ends_at,billing_email")
@@ -26,7 +29,7 @@ export async function GET(request: Request) {
       .eq("work_date", workDate)
       .order("created_at", { ascending: true });
 
-    if (profile.role === "staff") {
+    if (role === "staff") {
       attendanceQuery = attendanceQuery.eq("user_id", profile.user_id);
     }
 
@@ -34,12 +37,12 @@ export async function GET(request: Request) {
     if (attendanceError) throw attendanceError;
 
     const todayLog =
-      profile.role === "staff"
+      role === "staff"
         ? (attendance ?? []).find((row) => row.user_id === profile.user_id) ?? null
         : null;
     let pendingTimeEditRequestCount = 0;
 
-    if (profile.role === "owner") {
+    if (role === "owner") {
       const { count, error: pendingRequestError } = await supabase
         .from("time_edit_requests")
         .select("id", { count: "exact", head: true })
@@ -52,6 +55,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       profile,
       company,
+      developerMode,
       workDate,
       todayLog,
       attendance: attendance ?? [],

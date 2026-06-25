@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireActiveCompanySubscription } from "@/lib/billing-access";
-import { getRequestTypeLabel, normalizeRole } from "@/lib/time-edit";
+import { getEffectiveTenantRole } from "@/lib/developer-mode";
+import { getRequestTypeLabel } from "@/lib/time-edit";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance } from "@/lib/types";
 
@@ -144,7 +145,7 @@ export async function PATCH(request: Request) {
 async function requireOwner(request: Request) {
   const profile = await getAuthenticatedProfile(request);
   if (!profile) return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
-  if (normalizeRole(profile.role) !== "owner") {
+  if (getEffectiveTenantRole(profile) !== "owner") {
     return NextResponse.json({ message: "owner権限が必要です。" }, { status: 403 });
   }
   const billingRestriction = await requireActiveCompanySubscription(profile);

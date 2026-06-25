@@ -16,6 +16,8 @@ export type AuthProfile = {
   hourly_wage: number | null;
   fixed_salary: number | null;
   active: boolean;
+  is_developer: boolean;
+  auth_email?: string | null;
   terms_accepted_at: string | null;
   created_at: string;
 };
@@ -79,7 +81,7 @@ export async function getAuthenticatedProfile(request: Request) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,user_id,company_id,store_id,name,email,employee_number,role,employment_type,hourly_wage,fixed_salary,active,terms_accepted_at,created_at")
+    .select("id,user_id,company_id,store_id,name,email,employee_number,role,employment_type,hourly_wage,fixed_salary,active,is_developer,terms_accepted_at,created_at")
     .eq("user_id", user.id)
     .eq("active", true)
     .maybeSingle<AuthProfile>();
@@ -88,7 +90,7 @@ export async function getAuthenticatedProfile(request: Request) {
     throw new Error(`profiles lookup failed: ${error.message}`);
   }
 
-  return data;
+  return data ? { ...data, auth_email: user.email ?? null } : null;
 }
 
 function getBearerToken(request: Request) {

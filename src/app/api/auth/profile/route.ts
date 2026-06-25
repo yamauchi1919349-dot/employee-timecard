@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isDeveloperProfile } from "@/lib/developer-mode";
 import { getAuthenticatedProfile } from "@/lib/supabase";
 
 export async function GET(request: Request) {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ profile });
+    return NextResponse.json({ profile, developerMode: isDeveloperProfile(profile) });
   } catch (error) {
     return NextResponse.json(
       {

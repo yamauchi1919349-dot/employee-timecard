@@ -6,7 +6,7 @@ import { useAuth } from "./AuthProvider";
 import { TenantRole } from "@/lib/types";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { session, loading, profileError, signOut } = useAuth();
+  const { developerMode, session, loading, profileError, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -44,7 +44,12 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {developerMode ? <DeveloperModeBadge /> : null}
+    </>
+  );
 }
 
 export function RequireRole({
@@ -54,8 +59,8 @@ export function RequireRole({
   roles: TenantRole[];
   children: ReactNode;
 }) {
-  const { profile } = useAuth();
-  const role = profile?.role?.trim().toLowerCase() as TenantRole | undefined;
+  const { developerMode, profile } = useAuth();
+  const role = (developerMode ? "owner" : profile?.role?.trim().toLowerCase()) as TenantRole | undefined;
 
   if (!role || !roles.includes(role)) {
     return (
@@ -86,5 +91,13 @@ function AuthShell({ children }: { children: ReactNode }) {
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-950">
       <div className="mx-auto w-full max-w-md">{children}</div>
     </main>
+  );
+}
+
+function DeveloperModeBadge() {
+  return (
+    <div className="fixed bottom-3 right-3 z-50 rounded-full bg-slate-950/80 px-3 py-1 text-xs font-bold text-white shadow-sm">
+      Developer Mode
+    </div>
   );
 }

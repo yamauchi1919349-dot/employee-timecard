@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdmin, type AuthProfile } from "@/lib/supabase";
 import { getBillingRestrictionMessage, isCompanySubscriptionActive } from "@/lib/billing-status";
+import { isDeveloperProfile } from "@/lib/developer-mode";
 
 export async function requireActiveCompanySubscription(profile: AuthProfile) {
+  if (isDeveloperProfile(profile)) return null;
+
   const supabase = createSupabaseAdmin();
   const { data, error } = await supabase
     .from("companies")

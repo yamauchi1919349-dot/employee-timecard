@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireActiveCompanySubscription } from "@/lib/billing-access";
+import { getEffectiveTenantRole } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile, TenantRole } from "@/lib/supabase";
 
 type InviteBody = {
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     if (!inviter) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
     }
-    const inviterRole = inviter.role?.trim().toLowerCase();
+    const inviterRole = getEffectiveTenantRole(inviter);
     if (!["owner", "manager"].includes(inviterRole)) {
       return NextResponse.json({ message: "招待する権限がありません。" }, { status: 403 });
     }
@@ -107,7 +108,7 @@ export async function POST(request: Request) {
         role,
         active: true,
       })
-      .select("id,user_id,company_id,store_id,name,email,employee_number,role,employment_type,hourly_wage,fixed_salary,active,created_at")
+      .select("id,user_id,company_id,store_id,name,email,employee_number,role,employment_type,hourly_wage,fixed_salary,active,is_developer,created_at")
       .single();
 
     if (profileError) {

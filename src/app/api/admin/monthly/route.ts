@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { APP_TIME_ZONE } from "@/lib/attendance";
 import { normalizeCompanySettings, roundDateToInterval } from "@/lib/admin-settings";
 import { requireActiveCompanySubscription } from "@/lib/billing-access";
+import { getEffectiveTenantRole } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 import { Attendance, CompanySettings } from "@/lib/types";
 
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
     }
 
-    const role = profile.role?.trim().toLowerCase();
+    const role = getEffectiveTenantRole(profile);
     if (!["owner", "manager", "admin"].includes(role)) {
       return NextResponse.json(
         { message: "月次集計を表示する権限がありません。" },

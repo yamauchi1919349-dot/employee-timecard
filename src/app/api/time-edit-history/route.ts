@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { normalizeRole } from "@/lib/time-edit";
+import { getEffectiveTenantRole } from "@/lib/developer-mode";
 import { createSupabaseAdmin, getAuthenticatedProfile } from "@/lib/supabase";
 
 const HISTORY_SELECT = "*, profiles!time_edit_histories_profile_id_fkey(name,email,role), editor:profiles!time_edit_histories_edited_by_profile_id_fkey(name,email,role)";
@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const profile = await getAuthenticatedProfile(request);
     if (!profile) return NextResponse.json({ message: "ログインが必要です。" }, { status: 401 });
 
-    const role = normalizeRole(profile.role);
+    const role = getEffectiveTenantRole(profile);
     const supabase = createSupabaseAdmin();
     let query = supabase
       .from("time_edit_histories")

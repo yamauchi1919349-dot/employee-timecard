@@ -24,6 +24,7 @@ type DashboardPayload = {
   workDate: string;
   attendance: AuthAttendance[];
   pendingTimeEditRequestCount?: number;
+  developerMode?: boolean;
 };
 
 type AuthAttendance = {
@@ -48,8 +49,8 @@ export default function DashboardPage() {
 }
 
 function DashboardRouter() {
-  const { loading, profile } = useAuth();
-  const role = normalizeRole(profile?.role);
+  const { developerMode, loading, profile } = useAuth();
+  const role = developerMode ? "owner" : normalizeRole(profile?.role);
 
   if (loading || !profile || !role) {
     return <DashboardLoading />;
@@ -63,14 +64,15 @@ function DashboardRouter() {
 }
 
 function DashboardContent({ role }: { role: string }) {
-  const { session, profile, refreshProfile, signOut } = useAuth();
+  const { developerMode, session, profile, refreshProfile, signOut } = useAuth();
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [checkoutMessage] = useState<string | null>(() => getCheckoutMessage());
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [billingLoading, setBillingLoading] = useState<"checkout" | "portal" | null>(null);
   const displayedMessage = message ?? checkoutMessage;
-  const billingAllowed = isCompanySubscriptionActive(data?.company);
+  const isDeveloperMode = developerMode || data?.developerMode === true;
+  const billingAllowed = isDeveloperMode || isCompanySubscriptionActive(data?.company);
   const ownerBillingRestricted = role === "owner" && !billingAllowed;
   const nonOwnerBillingRestricted = role !== "owner" && !billingAllowed;
 
@@ -124,7 +126,7 @@ function DashboardContent({ role }: { role: string }) {
     return <DashboardLoading />;
   }
 
-  if (role === "owner" && !profile?.terms_accepted_at) {
+  if (!isDeveloperMode && role === "owner" && !profile?.terms_accepted_at) {
     return <TermsAcceptanceScreen sessionToken={session?.access_token ?? ""} onAccepted={refreshProfile} onSignOut={signOut} />;
   }
 
@@ -190,7 +192,7 @@ function DashboardContent({ role }: { role: string }) {
           </nav>
         ) : null}
 
-        {role === "owner" ? (
+        {role === "owner" && !isDeveloperMode ? (
           <BillingCard
             company={data?.company ?? null}
             restricted={ownerBillingRestricted}
